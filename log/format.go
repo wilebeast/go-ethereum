@@ -71,16 +71,32 @@ func (h *TerminalHandler) format(buf []byte, r slog.Record, usecolor bool) []byt
 		fs := runtime.CallersFrames([]uintptr{r.PC})
 		frame, _ := fs.Next()
 		if frame.File != "" {
-			// Extract just the filename from the full path
+			// Extract filename with parent directory
+			lastSlash := -1
+			secondLastSlash := -1
 			for i := len(frame.File) - 1; i >= 0; i-- {
 				if frame.File[i] == '/' {
-					b.WriteString(frame.File[i+1:])
-					b.WriteString(":")
-					b.WriteString(strconv.Itoa(frame.Line))
-					b.WriteString(" ")
-					break
+					if lastSlash == -1 {
+						lastSlash = i
+					} else {
+						secondLastSlash = i
+						break
+					}
 				}
 			}
+			if secondLastSlash != -1 {
+				// Include parent directory: parent/filename
+				b.WriteString(frame.File[secondLastSlash+1:])
+			} else if lastSlash != -1 {
+				// Just filename if no parent directory
+				b.WriteString(frame.File[lastSlash+1:])
+			} else {
+				// Full path if no slashes found
+				b.WriteString(frame.File)
+			}
+			b.WriteString(":")
+			b.WriteString(strconv.Itoa(frame.Line))
+			b.WriteString(" ")
 		}
 	}
 
