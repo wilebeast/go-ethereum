@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/big"
 	"reflect"
+	"runtime"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -64,6 +65,25 @@ func (h *TerminalHandler) format(buf []byte, r slog.Record, usecolor bool) []byt
 	b.WriteString("[")
 	writeTimeTermFormat(b, r.Time)
 	b.WriteString("] ")
+
+	// Add filename and line number
+	if r.PC != 0 {
+		fs := runtime.CallersFrames([]uintptr{r.PC})
+		frame, _ := fs.Next()
+		if frame.File != "" {
+			// Extract just the filename from the full path
+			for i := len(frame.File) - 1; i >= 0; i-- {
+				if frame.File[i] == '/' {
+					b.WriteString(frame.File[i+1:])
+					b.WriteString(":")
+					b.WriteString(strconv.Itoa(frame.Line))
+					b.WriteString(" ")
+					break
+				}
+			}
+		}
+	}
+
 	b.WriteString(msg)
 
 	// try to justify the log output for short messages
