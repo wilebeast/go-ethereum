@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -22,20 +21,25 @@ func Printf(name string, args map[string]interface{}, result map[string]interfac
 	// logs.CtxInfo(context.Background(), "Calling %s with arguments: %s, result:%s\n", name, string(argsBytes), string(resultBytes))
 	// }
 
-	// Get caller information (skip 2 frames: this function and its caller)
-	_, file, line, ok := runtime.Caller(2)
+	var callerInfo string
+	var calleeInfo string
+	// Get callee information (skip 2 frames: this function and its caller)
+	calleePc, calleeFile, calleeLine, ok := runtime.Caller(2)
 	if ok {
-		// Extract just the filename with parent directory
-		calleeInfo := getCalleeInfo(file, line)
-		// Use custom log format to show the actual caller location instead of logging function location
-		customLogInfo(calleeInfo, "callee", name, "arguments", string(argsBytes), "result", string(resultBytes))
-	} else {
-		log.Info("function_trace_log", "callee", name, "arguments", string(argsBytes), "result", string(resultBytes))
+		calleeInfo = getFunctionInfo(calleePc, calleeFile, calleeLine)
 	}
+
+	// Get caller information (skip 3 frames: this function, its caller, and the callee)
+	callerPc, callerFile, callerLine, ok := runtime.Caller(3)
+	if ok {
+		callerInfo = getFunctionInfo(callerPc, callerFile, callerLine)
+	}
+	// Use custom log format with both caller and callee information
+	customLogInfo("("+callerInfo+")"+" -> "+"("+calleeInfo+")", "arguments", string(argsBytes), "result", string(resultBytes))
 }
 
-// getCallerInfo extracts filename with parent directory and line number
-func getCalleeInfo(file string, line int) string {
+// getFileInfo extracts filename with parent directory
+func getFileInfo(file string) string {
 	// Extract filename with parent directory
 	lastSlash := -1
 	secondLastSlash := -1
@@ -50,19 +54,44 @@ func getCalleeInfo(file string, line int) string {
 		}
 	}
 
-	var callerInfo string
+	var fileInfo string
 	if secondLastSlash != -1 {
 		// Include parent directory: parent/filename
-		callerInfo = file[secondLastSlash+1:]
+		fileInfo = file[secondLastSlash+1:]
 	} else if lastSlash != -1 {
 		// Just filename if no parent directory
-		callerInfo = file[lastSlash+1:]
+		fileInfo = file[lastSlash+1:]
 	} else {
 		// Full path if no slashes found
-		callerInfo = file
+		fileInfo = file
 	}
 
-	return callerInfo + ":" + strconv.Itoa(line)
+	return fileInfo
+}
+
+// getFunctionInfo extracts function information with shortened function name
+func getFunctionInfo(pc uintptr, file string, line int) string {
+	// Get the function name from the program counter
+	if fn := runtime.FuncForPC(pc); fn != nil {
+		// Extract just the last part of the function name (after last slash)
+		fullName := fn.Name()
+		lastSlash := -1
+		for i := len(fullName) - 1; i >= 0; i-- {
+			if fullName[i] == '/' {
+				lastSlash = i
+				break
+			}
+		}
+		var shortName string
+		if lastSlash != -1 {
+			shortName = fullName[lastSlash+1:]
+		} else {
+			shortName = fullName
+		}
+		return fmt.Sprintf("%s:%d (%s)", getFileInfo(file), line, shortName)
+	} else {
+		return fmt.Sprintf("%s:%d", getFileInfo(file), line)
+	}
 }
 
 // customLogInfo creates a log message with custom caller location
