@@ -26,16 +26,16 @@ func Printf(name string, args map[string]interface{}, result map[string]interfac
 	_, file, line, ok := runtime.Caller(2)
 	if ok {
 		// Extract just the filename with parent directory
-		callerInfo := getCallerInfo(file, line)
+		calleeInfo := getCalleeInfo(file, line)
 		// Use custom log format to show the actual caller location instead of logging function location
-		customLogInfo("Calling function", callerInfo, "callee", name, "arguments", string(argsBytes), "result", string(resultBytes))
+		customLogInfo(calleeInfo, "callee", name, "arguments", string(argsBytes), "result", string(resultBytes))
 	} else {
-		log.Info("Calling function", "callee", name, "arguments", string(argsBytes), "result", string(resultBytes))
+		log.Info("function_trace_log", "callee", name, "arguments", string(argsBytes), "result", string(resultBytes))
 	}
 }
 
 // getCallerInfo extracts filename with parent directory and line number
-func getCallerInfo(file string, line int) string {
+func getCalleeInfo(file string, line int) string {
 	// Extract filename with parent directory
 	lastSlash := -1
 	secondLastSlash := -1
@@ -66,7 +66,7 @@ func getCallerInfo(file string, line int) string {
 }
 
 // customLogInfo creates a log message with custom caller location
-func customLogInfo(msg, callerInfo string, attrs ...interface{}) {
+func customLogInfo(calleeInfo string, attrs ...interface{}) {
 	// Create a custom log record with the desired caller information
 	if len(attrs)%2 != 0 {
 		// If odd number of arguments, log error and use standard logger
@@ -87,5 +87,5 @@ func customLogInfo(msg, callerInfo string, attrs ...interface{}) {
 	}
 
 	// Use the standard logger but with a custom message that includes caller info
-	log.Info(fmt.Sprintf("%s %s", callerInfo, msg) + logMsg)
+	log.Info(fmt.Sprintf("%s", calleeInfo) + logMsg)
 }
