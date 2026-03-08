@@ -23,6 +23,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/func_trace_log"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -43,6 +44,9 @@ func (n *Node) apis() []rpc.API {
 		}, {
 			Namespace: "debug",
 			Service:   &p2pDebugAPI{n},
+		}, {
+			Namespace: "debug",
+			Service:   &func_trace_log.TraceAPI{},
 		}, {
 			Namespace: "web3",
 			Service:   &web3API{n},

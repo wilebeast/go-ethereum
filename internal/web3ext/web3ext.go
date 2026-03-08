@@ -474,6 +474,16 @@ web3._extend({
 			params: 1,
 			inputFormatter: [null],
 		}),
+		new web3._extend.Method({
+			name: 'setEnableLogTrace',
+			call: 'debug_setEnableLogTrace',
+			params: 1,
+		}),
+		new web3._extend.Method({
+			name: 'isEnableLogTrace',
+			call: 'debug_isEnableLogTrace',
+			params: 0,
+		}),
 	],
 	properties: []
 });

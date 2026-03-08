@@ -8,7 +8,36 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+var (
+	enableLogTrace = false
+)
+
+// SetEnableLogTrace sets the enableLogTrace flag.
+func SetEnableLogTrace(enable bool) {
+	enableLogTrace = enable
+}
+
+func IsEnableLogTrace() bool {
+	return enableLogTrace
+}
+
+// TraceAPI is the collection of Ethereum full node related APIs for tracing.
+type TraceAPI struct{}
+
+// SetEnableLogTrace sets the enableLogTrace flag.
+func (api *TraceAPI) SetEnableLogTrace(enable bool) {
+	SetEnableLogTrace(enable)
+}
+
+// IsEnableLogTrace returns whether the log trace is enabled.
+func (api *TraceAPI) IsEnableLogTrace() bool {
+	return IsEnableLogTrace()
+}
+
 func Printf(name string, args map[string]interface{}, result map[string]interface{}) {
+	if !enableLogTrace {
+		return
+	}
 	argsBytes, _ := json.Marshal(args)
 	resultBytes, _ := json.Marshal(result)
 	// ctxArgs := args["ctx"]
