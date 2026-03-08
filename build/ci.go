@@ -324,9 +324,9 @@ func buildFlags(env build.Environment, staticLinking bool, buildTags []string) (
 	}
 	// Strip DWARF on darwin. This used to be required for certain things,
 	// and there is no downside to this, so we just keep doing it.
-	if runtime.GOOS == "darwin" {
-		ld = append(ld, "-s")
-	}
+	// if runtime.GOOS == "darwin" {
+	// 	ld = append(ld, "-s")
+	// }
 	if runtime.GOOS == "linux" {
 		// Enforce the stacksize to 8M, which is the case on most platforms apart from
 		// alpine Linux.
@@ -334,7 +334,7 @@ func buildFlags(env build.Environment, staticLinking bool, buildTags []string) (
 		// regarding the options --build-id=none and --strip-all. It is needed for
 		// reproducible builds; removing references to temporary files in C-land, and
 		// making build-id reproducibly absent.
-		extld := []string{"-Wl,-z,stack-size=0x800000,--build-id=none,--strip-all"}
+		extld := []string{"-Wl,-z,stack-size=0x800000,--build-id=none"}
 		if staticLinking {
 			extld = append(extld, "-static")
 			// Under static linking, use of certain glibc features must be
