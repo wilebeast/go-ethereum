@@ -57,3 +57,17 @@ cmd/geth/geth
 cmd/rlpdump/rlpdump
 cmd/workload/workload
 cmd/keeper/keeper
+.gocache/*/*
+devdata/*
+cmd/geth/devdata/*
+*.log
+\.gocache/*
+core/__debug_bin2544399959
+cmd/geth/__debug_bin12353747
+cmd/geth/__debug_bin734185145
+cmd/geth/__debug_bin1339982824
+cmd/geth/__debug_bin1551641186
+.codex
+eth/tracers/internal/tracetest/__debug_bin4125996377
+core/__debug_bin2233945801
+my-geth

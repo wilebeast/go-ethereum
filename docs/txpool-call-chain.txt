@@ -1,0 +1,103 @@
+Geth TxPool Call Chain
+======================
+
+Main Path
+=========
+
+TxPool.Add
+[core/txpool/txpool.go]
+func (*TxPool) Add
+    |
+    v
+LegacyPool.Add
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) Add
+    |
+    v
+add
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) add
+    |
+    v
+enqueueTx
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) enqueueTx
+    |
+    v
+requestPromoteExecutables
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) requestPromoteExecutables
+    |
+    v
+runReorg
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) runReorg
+    |
+    v
+promoteExecutables
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) promoteExecutables
+    |
+    v
+Pending
+[core/txpool/legacypool/legacypool.go]
+func (*LegacyPool) Pending
+    |
+    v
+miner
+[miner/worker.go] + [miner/ordering.go]
+func (*Miner) fillTransactions
+func newTransactionsByPriceAndNonce
+
+
+One-Line Version
+================
+
+TxPool.Add
+ -> LegacyPool.Add
+ -> add
+ -> enqueueTx
+ -> requestPromoteExecutables
+ -> runReorg
+ -> promoteExecutables
+ -> Pending
+ -> miner
+
+
+Expanded Notes
+==============
+
+1. TxPool.Add
+   - Entry point for the unified txpool.
+   - Splits incoming transactions by subpool type.
+
+2. LegacyPool.Add
+   - Filters known and basically invalid transactions.
+   - Calls addTxsLocked, which eventually calls add.
+
+3. add
+   - Performs stateful validation and replacement / overflow logic.
+   - Decides whether the tx replaces a pending tx or should enter the future queue.
+
+4. enqueueTx
+   - Inserts the transaction into the queue structure.
+   - Updates all/priced indexes.
+
+5. requestPromoteExecutables
+   - Schedules async promotion work through the reorg loop.
+
+6. runReorg
+   - Central async maintenance stage.
+   - Handles reset, promotion, demotion, truncation, and tx event emission.
+
+7. promoteExecutables
+   - Pulls contiguous executable txs out of the future queue.
+   - Moves them into pending.
+
+8. Pending
+   - Exposes executable txs as account-grouped, nonce-ordered LazyTransactions.
+
+9. miner
+   - Reads Pending(filter).
+   - Builds a per-account head heap ordered by effective tip / time.
+   - Commits transactions into the block candidate.

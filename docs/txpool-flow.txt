@@ -1,0 +1,218 @@
+Geth TxPool Flow
+================
+
+Tx Source
+(RPC / local / P2P peer)
+        |
+        v
++----------------------+
+| TxPool.Add           |
+| core/txpool/txpool.go|
++----------------------+
+        |
+        v
++------------------------------+
+| Subpool dispatch             |
+| legacy tx -> LegacyPool.Add  |
++------------------------------+
+        |
+        v
++--------------------------------------+
+| LegacyPool.Add                       |
+| - fast known check                   |
+| - ValidateTxBasics                   |
+| - invalid => DROP                    |
+|   ErrAlreadyKnown / bad sig / size   |
+|   tip too low / fee cap invalid      |
++--------------------------------------+
+        |
+        v
++--------------------------------------+
+| addTxsLocked -> add(tx)              |
+| - validateTx with currentState       |
+| - auth / delegated checks            |
+| - state invalid => DROP              |
+|   nonce too old / no funds /         |
+|   ErrInflightTxLimitReached /        |
+|   ErrAuthorityReserved               |
++--------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| Pool capacity check                              |
+| if all.Slots()+numSlots(tx) > GlobalSlots+Queue  |
++--------------------------------------------------+
+        |
+        +------------------------------+
+        | yes                          | no
+        v                              v
++-----------------------------------+  |
+| priced.Underpriced(tx)?           |  |
+| yes => DROP                       |  |
+|   ErrUnderpriced                  |  |
++-----------------------------------+  |
+        | no                           |
+        v                              |
++----------------------------------------------+
+| priced.Discard(...)                           |
+| evict cheapest txs to make room               |
+| if impossible => DROP ErrTxPoolOverflow       |
+| if future tx would evict pending tx => DROP   |
+|   ErrFutureReplacePending                     |
++----------------------------------------------+
+        |
+        v
++--------------------------------------+
+| Nonce already in pending[from]?      |
++--------------------------------------+
+        |
+   +----+----+
+   | yes     | no
+   v         v
++------------------------------+   +------------------------------+
+| pending[from].Add(tx)        |   | enqueueTx                    |
+| replace path                 |   | queue.add(tx)                |
+|                              |   | goes to future/nonexec queue |
+| if price bump too low        |   |                              |
+| => DROP ErrReplaceUnderpriced|   | if same nonce replacement    |
++------------------------------+   | bump too low => DROP         |
+        |                          |   ErrReplaceUnderpriced      |
+        |                          +------------------------------+
+        +-------------+--------------------+
+                      |
+                      v
++--------------------------------------+
+| requestPromoteExecutables            |
+| async scheduleReorgLoop/runReorg     |
++--------------------------------------+
+                      |
+                      v
++--------------------------------------+
+| runReorg                             |
+| - optional reset(oldHead,newHead)    |
+| - promoteExecutables(accounts)       |
+| - truncatePending()                  |
+| - truncateQueue()                    |
++--------------------------------------+
+
+PROMOTION PATH
+==============
+
++----------------------------------------------+
+| queue.promoteExecutables(account)            |
+| per account:                                 |
+|                                              |
+| 1. Forward(chainNonce)                       |
+|    old txs => DROP                           |
+|                                              |
+| 2. Filter(balance, gasLimit)                 |
+|    unpayable / over-gas txs => DROP          |
+|                                              |
+| 3. Ready(pendingNonces.get(addr))            |
+|    contiguous nonce range => PROMOTE         |
+|                                              |
+| 4. Cap(AccountQueue)                         |
+|    excess queued tail => DROP                |
++----------------------------------------------+
+                      |
+                      v
++------------------------------+
+| promoteTx(addr, tx)          |
+| -> insert into pending list  |
+| -> pendingNonces = nonce+1   |
++------------------------------+
+                      |
+                      v
++------------------------------+
+| pending map[address]*list    |
+| strict contiguous txs only   |
++------------------------------+
+
+PENDING MAINTENANCE / DROP PATHS
+================================
+
++--------------------------------------+
+| demoteUnexecutables()                |
+| when chain head/reset changes        |
++--------------------------------------+
+        |
+        v
++----------------------------------------------+
+| For each pending account:                    |
+| - Forward(chain nonce) => old txs DROP       |
+| - Filter(balance, gasLimit) => bad txs DROP  |
+| - invalidated suffix => DEMOTE back to queue |
+| - gap at front => DEMOTE whole list to queue |
++----------------------------------------------+
+
+GLOBAL FAIRNESS / EVICTION
+==========================
+
++--------------------------------------+
+| truncatePending()                    |
++--------------------------------------+
+        |
+        v
++----------------------------------------------+
+| if total pending > GlobalSlots               |
+| - identify accounts above AccountSlots       |
+| - cut high-nonce tail from big accounts      |
+| - fairness-exceeding pending txs => DROP     |
++----------------------------------------------+
+
++--------------------------------------+
+| truncateQueue()                      |
++--------------------------------------+
+        |
+        v
++----------------------------------------------+
+| if total queued > GlobalQueue                |
+| - sort accounts by heartbeat                 |
+| - older queued accounts evicted first        |
+| - highest nonce tail / whole account => DROP |
++----------------------------------------------+
+
++--------------------------------------+
+| loop() eviction ticker               |
++--------------------------------------+
+        |
+        v
++----------------------------------------------+
+| queue.evictList()                            |
+| if time.Since(beat) > Lifetime               |
+| => stale queued account txs DROP             |
++----------------------------------------------+
+
+MINER PATH
+==========
+
++--------------------------------------+
+| txpool.Pending(filter)               |
+| returns pending only                 |
+| grouped by account, nonce sorted     |
++--------------------------------------+
+                      |
+                      v
++----------------------------------------------+
+| miner.newTransactionsByPriceAndNonce         |
+| - one head tx per account into heap          |
+| - compare by effective tip / time            |
+| - pick best head                             |
+| - Shift() reveals next nonce from same acct  |
++----------------------------------------------+
+                      |
+                      v
++------------------------------+
+| block candidate inclusion    |
++------------------------------+
+
+Summary
+=======
+
+Add
+ -> basic/state validation
+ -> if full: underpriced check + priced eviction
+ -> queue or replace pending
+ -> promote contiguous executable txs to pending
+ -> reset/demotion/fairness/lifetime may drop or demote txs
+ -> miner only sees pending, and picks per-account head txs by price

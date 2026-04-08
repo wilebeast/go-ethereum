@@ -2617,6 +2617,62 @@ func TestSetCodeTransactionsReorg(t *testing.T) {
 	}
 }
 
+func TestPriorityAccountPendingFeeBoost(t *testing.T) {
+	t.Parallel()
+
+	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
+	blockchain := newTestBlockChain(params.TestChainConfig, 10000000, statedb, new(event.Feed))
+
+	priorityKey, _ := crypto.GenerateKey()
+	normalKey, _ := crypto.GenerateKey()
+	priorityAddr := crypto.PubkeyToAddress(priorityKey.PublicKey)
+	normalAddr := crypto.PubkeyToAddress(normalKey.PublicKey)
+
+	config := testTxPoolConfig
+	config.PriorityAccounts = []common.Address{priorityAddr}
+	config.PriorityFeeBoost = 100
+
+	pool := New(config, blockchain)
+	if err := pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	<-pool.initDoneCh
+
+	statedb.AddBalance(priorityAddr, uint256.NewInt(10000000000), tracing.BalanceChangeUnspecified)
+	statedb.AddBalance(normalAddr, uint256.NewInt(10000000000), tracing.BalanceChangeUnspecified)
+
+	priorityTx := pricedTransaction(0, 100000, big.NewInt(1), priorityKey)
+	normalTx := pricedTransaction(0, 100000, big.NewInt(10), normalKey)
+	if err := pool.addRemoteSync(priorityTx); err != nil {
+		t.Fatalf("failed to add priority transaction: %v", err)
+	}
+	if err := pool.addRemoteSync(normalTx); err != nil {
+		t.Fatalf("failed to add normal transaction: %v", err)
+	}
+
+	pending := pool.Pending(txpool.PendingFilter{})
+	if have, want := pending[priorityAddr][0].GasTipCap.Uint64(), uint64(101); have != want {
+		t.Fatalf("priority tip cap mismatch: have %d, want %d", have, want)
+	}
+	if have, want := pending[priorityAddr][0].GasFeeCap.Uint64(), uint64(101); have != want {
+		t.Fatalf("priority fee cap mismatch: have %d, want %d", have, want)
+	}
+	if have, want := pending[normalAddr][0].GasTipCap.Uint64(), uint64(10); have != want {
+		t.Fatalf("normal tip cap mismatch: have %d, want %d", have, want)
+	}
+	if have, want := priorityTx.GasTipCap().Uint64(), uint64(1); have != want {
+		t.Fatalf("priority transaction was mutated: have %d, want %d", have, want)
+	}
+	resolved := pending[priorityAddr][0].Resolve()
+	if resolved == nil {
+		t.Fatal("failed to resolve original transaction from lazy transaction")
+	}
+	if have, want := resolved.GasTipCap().Uint64(), uint64(1); have != want {
+		t.Fatalf("resolved transaction was mutated: have %d, want %d", have, want)
+	}
+}
+
 // Benchmarks the speed of validating the contents of the pending queue of the
 // transaction pool.
 func BenchmarkPendingDemotion100(b *testing.B)   { benchmarkPendingDemotion(b, 100) }

@@ -1,0 +1,420 @@
+Geth TxPool Flow With Source References
+======================================
+
+Legend
+======
+
+- [file] means the primary source file
+- func(...) means the key function / method
+- DROP means the transaction is rejected or removed from the pool
+- DEMOTE means a pending tx is moved back to the future queue
+
+
+TOP LEVEL ENTRY
+===============
+
+Tx Source
+(RPC / local / P2P peer)
+        |
+        v
++--------------------------------------------------+
+| TxPool.Add                                       |
+| [core/txpool/txpool.go]                          |
+| func (*TxPool) Add                              |
+| - split txs across subpools by Filter()         |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| LegacyPool.Add                                   |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) Add                           |
+| - precheck known txs                             |
+| - ValidateTxBasics                               |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| LegacyPool.ValidateTxBasics                      |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) ValidateTxBasics              |
+| -> txpool.ValidateTransaction                    |
+|    [core/txpool/validation.go]                   |
+|                                                   |
+| invalid => DROP                                  |
+| - ErrAlreadyKnown                                |
+| - bad signature / tx type / intrinsic gas        |
+| - tip below min tip / price limit                |
+| - oversized tx                                   |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| addTxsLocked -> add(tx)                          |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) addTxsLocked                  |
+| func (*LegacyPool) add                           |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| LegacyPool.validateTx                            |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) validateTx                    |
+| -> txpool.ValidateTransactionWithState           |
+|    [core/txpool/validation.go]                   |
+| -> validateAuth / checkDelegationLimit           |
+|    [core/txpool/legacypool/legacypool.go]        |
+|                                                   |
+| invalid => DROP                                  |
+| - old nonce / insufficient funds                 |
+| - delegated-account inflight limit               |
+| - authority reserved                             |
++--------------------------------------------------+
+
+
+CAPACITY / REPLACEMENT PATH
+===========================
+
+        |
+        v
++--------------------------------------------------+
+| Pool full?                                       |
+| [core/txpool/legacypool/legacypool.go]           |
+| inside func (*LegacyPool) add                    |
+| check: all.Slots()+numSlots(tx) >                |
+|        GlobalSlots + GlobalQueue                 |
++--------------------------------------------------+
+        |
+        +------------------------------+
+        | yes                          | no
+        v                              v
++--------------------------------------------------+  |
+| priced.Underpriced(tx)?                           |  |
+| [core/txpool/legacypool/list.go]                  |  |
+| func (*pricedList) Underpriced                    |  |
+| func (*pricedList) underpricedFor                 |  |
+|                                                   |  |
+| yes => DROP ErrUnderpriced                        |  |
++--------------------------------------------------+  |
+        | no                                         |
+        v                                            |
++--------------------------------------------------+ |
+| priced.Discard(slots)                             | |
+| [core/txpool/legacypool/list.go]                  | |
+| func (*pricedList) Discard                        | |
+| - evict lowest priced txs                         | |
+| - urgent heap + floating heap                     | |
+|                                                   | |
+| fail => DROP ErrTxPoolOverflow                    | |
++--------------------------------------------------+ |
+        |                                            |
+        v                                            |
++--------------------------------------------------+ |
+| Future tx evicting pending tx?                    | |
+| [core/txpool/legacypool/legacypool.go]            | |
+| func (*LegacyPool) isGapped                       | |
+| logic inside func (*LegacyPool) add               | |
+|                                                   | |
+| yes => DROP ErrFutureReplacePending               | |
++--------------------------------------------------+ |
+        |                                            |
+        +--------------------------------------------+
+
+
+QUEUE OR PENDING INSERTION
+==========================
+
+        |
+        v
++--------------------------------------------------+
+| Pending replacement path?                        |
+| [core/txpool/legacypool/legacypool.go]           |
+| inside func (*LegacyPool) add                    |
+| if pending[from] contains tx.Nonce()             |
++--------------------------------------------------+
+        |
+   +----+----+
+   | yes     | no
+   v         v
++--------------------------------------------------+   +--------------------------------------------------+
+| pending[from].Add(tx)                             |   | enqueueTx(hash, tx, addAll)                      |
+| [core/txpool/legacypool/list.go]                  |   | [core/txpool/legacypool/legacypool.go]           |
+| func (*list) Add                                  |   | func (*LegacyPool) enqueueTx                      |
+|                                                   |   | -> queue.add                                      |
+| if bump too low => DROP ErrReplaceUnderpriced     |   |    [core/txpool/legacypool/queue.go]              |
++--------------------------------------------------+   +--------------------------------------------------+
+                                                            |
+                                                            v
+                                                +--------------------------------------------------+
+                                                | queue.add(tx)                                    |
+                                                | [core/txpool/legacypool/queue.go]                |
+                                                | func (*queue) add                                |
+                                                | -> per-account future list.Add                   |
+                                                |                                                   |
+                                                | if same-nonce bump too low =>                    |
+                                                | DROP ErrReplaceUnderpriced                       |
+                                                +--------------------------------------------------+
+
+
+PROMOTION SCHEDULING
+====================
+
+        |
+        v
++--------------------------------------------------+
+| requestPromoteExecutables(dirtyAddrs)            |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) requestPromoteExecutables     |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| scheduleReorgLoop                                |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) scheduleReorgLoop             |
+| - batches reset/promote/event work               |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| runReorg                                         |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) runReorg                      |
+| - optional reset                                 |
+| - promoteExecutables                             |
+| - demoteUnexecutables                            |
+| - truncatePending                                |
+| - truncateQueue                                  |
++--------------------------------------------------+
+
+
+PROMOTION PATH
+==============
+
+        |
+        v
++--------------------------------------------------+
+| promoteExecutables(accounts)                     |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) promoteExecutables            |
+| -> queue.promoteExecutables                      |
+|    [core/txpool/legacypool/queue.go]             |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| queue.promoteExecutables(account)                |
+| [core/txpool/legacypool/queue.go]                |
+| func (*queue) promoteExecutables                 |
+|                                                   |
+| 1. list.Forward(chainNonce)                      |
+|    [core/txpool/legacypool/list.go]              |
+|    old txs => DROP                               |
+|                                                   |
+| 2. list.Filter(balance, gasLimit)                |
+|    [core/txpool/legacypool/list.go]              |
+|    unpayable / over-gas txs => DROP              |
+|                                                   |
+| 3. list.Ready(pendingNonces.get(addr))           |
+|    [core/txpool/legacypool/list.go]              |
+|    contiguous nonce run => PROMOTE               |
+|                                                   |
+| 4. list.Cap(AccountQueue)                        |
+|    [core/txpool/legacypool/list.go]              |
+|    excess queued tail => DROP                    |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| promoteTx(addr, hash, tx)                        |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) promoteTx                     |
+| - insert into pending list                       |
+| - pendingNonces.set(addr, nonce+1)               |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| pending map[address]*list                        |
+| [core/txpool/legacypool/legacypool.go]           |
+| field: LegacyPool.pending                        |
+| - strict contiguous executable txs only          |
++--------------------------------------------------+
+
+
+RESET / DEMOTION / REINJECTION
+==============================
+
++--------------------------------------------------+
+| reset(oldHead, newHead)                          |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) reset                         |
+| - detect shallow reorg                           |
+| - types.TxDifference(discarded, included)        |
+| - reinject lost txs via addTxsLocked             |
++--------------------------------------------------+
+
++--------------------------------------------------+
+| demoteUnexecutables()                            |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) demoteUnexecutables           |
+|                                                   |
+| for each pending account:                        |
+| - list.Forward(chain nonce) => old txs DROP      |
+| - list.Filter(balance, gasLimit) => bad txs DROP |
+| - invalidated suffix => DEMOTE to queue          |
+| - front gap => DEMOTE whole suffix to queue      |
++--------------------------------------------------+
+
+
+GLOBAL EVICTION / FAIRNESS
+==========================
+
++--------------------------------------------------+
+| truncatePending()                                |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) truncatePending               |
+| - uses prque of spammer accounts                 |
+| - trims high-nonce tail from large accounts      |
+| - fairness-exceeding pending txs => DROP         |
++--------------------------------------------------+
+
++--------------------------------------------------+
+| truncateQueue()                                  |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) truncateQueue                 |
+| -> queue.truncate                                |
+|    [core/txpool/legacypool/queue.go]             |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| queue.truncate()                                 |
+| [core/txpool/legacypool/queue.go]                |
+| func (*queue) truncate                           |
+| - sort accounts by heartbeat                     |
+| - older queued accounts evicted first            |
+| - highest nonce tail / whole account => DROP     |
++--------------------------------------------------+
+
++--------------------------------------------------+
+| loop() eviction ticker                           |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) loop                          |
+| -> queue.evictList                               |
+|    [core/txpool/legacypool/queue.go]             |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| queue.evictList()                                |
+| [core/txpool/legacypool/queue.go]                |
+| func (*queue) evictList                          |
+| - if time.Since(beat) > Lifetime                 |
+|   stale queued txs => DROP                       |
++--------------------------------------------------+
+
+
+PRICED STRUCTURE
+================
+
++--------------------------------------------------+
+| pricedList                                       |
+| [core/txpool/legacypool/list.go]                 |
+| type pricedList                                  |
+| - urgent priceHeap                               |
+| - floating priceHeap                             |
+| - tracks global eviction candidates              |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| priceHeap.Less / cmp                             |
+| [core/txpool/legacypool/list.go]                 |
+| type priceHeap                                   |
+| func (h *priceHeap) Less                         |
+| func (h *priceHeap) cmp                          |
+|                                                   |
+| compare order:                                   |
+| 1. effective tip (if baseFee set)                |
+| 2. GasFeeCap                                     |
+| 3. GasTipCap                                     |
+| 4. Nonce tie-break                               |
++--------------------------------------------------+
+
+
+MINER SIDE ORDERING
+===================
+
++--------------------------------------------------+
+| txpool.Pending(filter)                           |
+| [core/txpool/legacypool/legacypool.go]           |
+| func (*LegacyPool) Pending                       |
+| - returns pending only                           |
+| - map[address][]LazyTransaction                  |
+| - each account list sorted by nonce              |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| Miner.fillTransactions                           |
+| [miner/worker.go]                                |
+| func (*Miner) fillTransactions                   |
+| - asks txpool.Pending(filter)                    |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| newTransactionsByPriceAndNonce                   |
+| [miner/ordering.go]                              |
+| func newTransactionsByPriceAndNonce              |
+| - take head tx of each account                   |
+| - create global price heap                       |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| txByPriceAndTime                                 |
+| [miner/ordering.go]                              |
+| type txByPriceAndTime                            |
+| func (s txByPriceAndTime) Less                   |
+|                                                   |
+| compare order:                                   |
+| 1. effective miner fee / tip                     |
+| 2. first-seen time                               |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| Shift()                                          |
+| [miner/ordering.go]                              |
+| func (*transactionsByPriceAndNonce) Shift        |
+| - after head tx chosen, expose next nonce        |
+|   tx from same account                           |
++--------------------------------------------------+
+        |
+        v
++--------------------------------------------------+
+| commitTransactions                               |
+| [miner/worker.go]                                |
+| func (*Miner) commitTransactions                 |
+| - final block candidate assembly                 |
++--------------------------------------------------+
+
+
+ONE-LINE SUMMARY
+================
+
+TxPool.Add
+ -> LegacyPool.Add
+ -> ValidateTxBasics
+ -> add / validateTx
+ -> if full: priced.Underpriced / priced.Discard
+ -> pending replacement OR enqueueTx -> queue.add
+ -> requestPromoteExecutables
+ -> runReorg -> queue.promoteExecutables -> promoteTx -> pending
+ -> reset / demoteUnexecutables / truncatePending / truncateQueue may DROP or DEMOTE
+ -> miner reads txpool.Pending
+ -> miner orders account heads by price/time
+ -> Shift reveals next nonce per account

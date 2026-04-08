@@ -152,6 +152,9 @@ type Config struct {
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	Lifetime time.Duration // Maximum amount of time an account can remain stale in the non-executable pool
+
+	PriorityAccounts []common.Address // Accounts whose pending txs get local ordering priority
+	PriorityFeeBoost uint64           // Local wei boost added to priority tx fee metadata during Pending()
 }
 
 // DefaultConfig contains the default configurations for the transaction pool.
@@ -230,6 +233,7 @@ type LegacyPool struct {
 	config      Config
 	chainconfig *params.ChainConfig
 	chain       BlockChain
+	priority    map[common.Address]struct{}
 	gasTip      atomic.Pointer[uint256.Int]
 	txFeed      event.Feed
 	signer      types.Signer
@@ -265,6 +269,10 @@ type txpoolResetRequest struct {
 func New(config Config, chain BlockChain) *LegacyPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
+	priority := make(map[common.Address]struct{}, len(config.PriorityAccounts))
+	for _, addr := range config.PriorityAccounts {
+		priority[addr] = struct{}{}
+	}
 
 	// Create the transaction pool with its initial settings
 	signer := types.LatestSigner(chain.Config())
@@ -272,6 +280,7 @@ func New(config Config, chain BlockChain) *LegacyPool {
 		config:          config,
 		chain:           chain,
 		chainconfig:     chain.Config(),
+		priority:        priority,
 		signer:          signer,
 		pending:         make(map[common.Address]*list),
 		queue:           newQueue(config, signer),
@@ -526,14 +535,21 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 		}
 		if len(txs) > 0 {
 			lazies := make([]*txpool.LazyTransaction, len(txs))
+			_, prioritized := pool.priority[addr]
 			for i := 0; i < len(txs); i++ {
+				gasFeeCap := uint256.MustFromBig(txs[i].GasFeeCap())
+				gasTipCap := uint256.MustFromBig(txs[i].GasTipCap())
+				if prioritized {
+					gasFeeCap = boostFeeCap(gasFeeCap, pool.config.PriorityFeeBoost)
+					gasTipCap = boostFeeCap(gasTipCap, pool.config.PriorityFeeBoost)
+				}
 				lazies[i] = &txpool.LazyTransaction{
 					Pool:      pool,
 					Hash:      txs[i].Hash(),
 					Tx:        txs[i],
 					Time:      txs[i].Time(),
-					GasFeeCap: uint256.MustFromBig(txs[i].GasFeeCap()),
-					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
+					GasFeeCap: gasFeeCap,
+					GasTipCap: gasTipCap,
 					Gas:       txs[i].Gas(),
 					BlobGas:   txs[i].BlobGas(),
 				}
@@ -542,6 +558,17 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 		}
 	}
 	return pending
+}
+
+func boostFeeCap(cap *uint256.Int, boost uint64) *uint256.Int {
+	if boost == 0 {
+		return cap
+	}
+	boosted, overflow := new(uint256.Int).AddOverflow(cap, uint256.NewInt(boost))
+	if overflow {
+		return new(uint256.Int).SetAllOne()
+	}
+	return boosted
 }
 
 // ValidateTxBasics checks whether a transaction is valid according to the consensus
