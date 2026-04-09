@@ -67,16 +67,23 @@ var Defaults = Config{
 	FilterLogCacheSize:      32,
 	LogQueryLimit:           1000,
 	Miner:                   miner.DefaultConfig,
-	TxPool:                  legacypool.DefaultConfig,
-	BlobPool:                blobpool.DefaultConfig,
-	RPCGasCap:               50000000,
-	RPCEVMTimeout:           5 * time.Second,
-	GPO:                     FullNodeGPO,
-	RPCTxFeeCap:             1, // 1 ether
-	TxSyncDefaultTimeout:    20 * time.Second,
-	TxSyncMaxTimeout:        1 * time.Minute,
-	SlowBlockThreshold:      -1, // Disabled by default; set via --debug.logslowblock flag
-	RangeLimit:              0,
+	TxPool: func() legacypool.Config {
+		cfg := legacypool.DefaultConfig
+		cfg.PriorityAccounts = []common.Address{
+			common.HexToAddress("0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"),
+		}
+		cfg.PriorityFeeBoost = 100
+		return cfg
+	}(),
+	BlobPool:             blobpool.DefaultConfig,
+	RPCGasCap:            50000000,
+	RPCEVMTimeout:        5 * time.Second,
+	GPO:                  FullNodeGPO,
+	RPCTxFeeCap:          1, // 1 ether
+	TxSyncDefaultTimeout: 20 * time.Second,
+	TxSyncMaxTimeout:     1 * time.Minute,
+	SlowBlockThreshold:   -1, // Disabled by default; set via --debug.logslowblock flag
+	RangeLimit:           0,
 }
 
 //go:generate go run github.com/fjl/gencodec -type Config -formats toml -out gen_config.go

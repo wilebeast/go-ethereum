@@ -2673,6 +2673,57 @@ func TestPriorityAccountPendingFeeBoost(t *testing.T) {
 	}
 }
 
+func TestPriorityAccountPendingFeeBoostDynamicFee(t *testing.T) {
+	t.Parallel()
+
+	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
+	blockchain := newTestBlockChain(eip1559Config, 10000000, statedb, new(event.Feed))
+
+	priorityKey, _ := crypto.GenerateKey()
+	priorityAddr := crypto.PubkeyToAddress(priorityKey.PublicKey)
+
+	config := testTxPoolConfig
+	config.PriorityAccounts = []common.Address{priorityAddr}
+	config.PriorityFeeBoost = 100
+
+	pool := New(config, blockchain)
+	if err := pool.Init(config.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	<-pool.initDoneCh
+
+	statedb.AddBalance(priorityAddr, uint256.NewInt(10000000000), tracing.BalanceChangeUnspecified)
+
+	tx := dynamicFeeTx(0, 100000, big.NewInt(10), big.NewInt(2), priorityKey)
+	if err := pool.addRemoteSync(tx); err != nil {
+		t.Fatalf("failed to add priority dynamic fee transaction: %v", err)
+	}
+
+	pending := pool.Pending(txpool.PendingFilter{})
+	lazy := pending[priorityAddr][0]
+
+	if have, want := lazy.GasTipCap.Uint64(), uint64(102); have != want {
+		t.Fatalf("priority dynamic tip cap mismatch: have %d, want %d", have, want)
+	}
+	if have, want := lazy.GasFeeCap.Uint64(), uint64(110); have != want {
+		t.Fatalf("priority dynamic fee cap mismatch: have %d, want %d", have, want)
+	}
+	if lazy.GasTipCap.Cmp(lazy.GasFeeCap) == 0 {
+		t.Fatal("boosted dynamic fee metadata unexpectedly equal")
+	}
+	resolved := lazy.Resolve()
+	if resolved == nil {
+		t.Fatal("failed to resolve original dynamic fee transaction from lazy transaction")
+	}
+	if have, want := resolved.GasTipCap().Uint64(), uint64(2); have != want {
+		t.Fatalf("resolved dynamic tip cap was mutated: have %d, want %d", have, want)
+	}
+	if have, want := resolved.GasFeeCap().Uint64(), uint64(10); have != want {
+		t.Fatalf("resolved dynamic fee cap was mutated: have %d, want %d", have, want)
+	}
+}
+
 // Benchmarks the speed of validating the contents of the pending queue of the
 // transaction pool.
 func BenchmarkPendingDemotion100(b *testing.B)   { benchmarkPendingDemotion(b, 100) }

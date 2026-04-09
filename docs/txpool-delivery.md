@@ -337,8 +337,8 @@ if len(txs) > 0 {
 
 相关定义：
 
-- [LazyTransaction](/home/star/go-ethereum/core/txpool/subpool.go#L33)
-- [LazyTransaction.Resolve](/home/star/go-ethereum/core/txpool/subpool.go#L52)
+- [LazyTransaction](../core/txpool/subpool.go#L33)
+- [LazyTransaction.Resolve](../core/txpool/subpool.go#L52)
 
 `LazyTransaction` 同时持有两类信息：
 
@@ -350,7 +350,7 @@ if len(txs) > 0 {
 
 本次修改只改了第二类字段：
 
-- [legacypool.go#L546](/home/star/go-ethereum/core/txpool/legacypool/legacypool.go#L546)
+- [legacypool.go#L546](../core/txpool/legacypool/legacypool.go#L546)
 
 这里仍然保留：
 
@@ -363,7 +363,7 @@ if len(txs) > 0 {
 
 miner 排序为什么会吃到 boost：
 
-- [newTxWithMinerFee](/home/star/go-ethereum/miner/ordering.go#L37)
+- [newTxWithMinerFee](../miner/ordering.go#L37)
 
 这里读取的是 `*txpool.LazyTransaction` 上的：
 
@@ -376,9 +376,9 @@ miner 排序为什么会吃到 boost：
 
 - 原始交易仍然通过 `Resolve()` 或已有的 `Tx` 字段传递
 - `types.Transaction` 的真实 fee/cost 逻辑在：
-  - [transaction.go](/home/star/go-ethereum/core/types/transaction.go#L301)
-  - [transaction.go](/home/star/go-ethereum/core/types/transaction.go#L304)
-  - [transaction.go](/home/star/go-ethereum/core/types/transaction.go#L317)
+  - [transaction.go](../core/types/transaction.go#L301)
+  - [transaction.go](../core/types/transaction.go#L304)
+  - [transaction.go](../core/types/transaction.go#L317)
 
 这些真实字段和 `Cost()` 计算都没有被改。
 
@@ -392,7 +392,7 @@ miner 排序为什么会吃到 boost：
 
 对应验证单测：
 
-- [TestPriorityAccountPendingFeeBoost](/home/star/go-ethereum/core/txpool/legacypool/legacypool_test.go#L2620)
+- [TestPriorityAccountPendingFeeBoost](../core/txpool/legacypool/legacypool_test.go#L2620)
 
 该测试同时断言：
 
@@ -441,9 +441,288 @@ python3 scripts/txpool_low_gas_flood.py \
 - 只用于本地开发节点或私链
 - `from` 地址必须在本节点已解锁
 
+### 4.3.1 已准备好的两套测试账户
+
+为了复现实验，仓库内已经准备了两套固定测试账户，仅用于本地 devnet：
+
+1. 特权账户 B
+   - 地址: `0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A`
+   - 原始私钥文件: [priority.rawkey](../devdata/txpool-lab/priority.rawkey)
+   - keystore 文件: [priority.json](../devdata/txpool-lab/keystore/priority.json)
+
+2. 普通账户 A
+   - 地址: `0x1563915e194D8CfBA1943570603F7606A3115508`
+   - 原始私钥文件: [normal.rawkey](../devdata/txpool-lab/normal.rawkey)
+   - keystore 文件: [normal.json](../devdata/txpool-lab/keystore/normal.json)
+
+统一密码文件：
+
+- [password.txt](../devdata/txpool-lab/password.txt)
+
+密码内容：
+
+- `txpool-lab`
+
+注意：
+
+- 这些私钥是固定公开测试私钥，只能用于本地实验
+- 不要导入真实网络钱包
+
 ### 4.4 如何验证“特权账户插队”是否生效
 
-建议测试方案：
+这里给出一套可以直接照着执行的实验参数。
+
+#### 步骤 1: 设置优先账户参数
+
+当前代码里还没有把 `PriorityAccounts` 和 `PriorityFeeBoost` 暴露成 CLI 参数，所以需要临时在代码里设置。
+
+最小改动点建议放在：
+
+- [ethconfig/config.go#L49](../eth/ethconfig/config.go#L49)
+
+把默认配置从：
+
+```go
+TxPool: legacypool.DefaultConfig,
+```
+
+改成：
+
+```go
+TxPool: func() legacypool.Config {
+	cfg := legacypool.DefaultConfig
+	cfg.PriorityAccounts = []common.Address{
+		common.HexToAddress("0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"),
+	}
+	cfg.PriorityFeeBoost = 100
+	return cfg
+}(),
+```
+
+参数解释：
+
+- `PriorityAccounts`
+  - 这里填特权账户 B
+  - 即 `0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A`
+- `PriorityFeeBoost = 100`
+  - 本地排序时给该账户的 `LazyTransaction.GasTipCap/GasFeeCap` 各加 `100`
+  - 例如 legacy tx 原始 gas price 为 `1`，导出后排序视图会变成 `101`
+
+#### 步骤 2: 启动本地开发节点
+
+建议参数：
+
+```bash
+go run ./cmd/geth \
+  --dev \
+  --dev.period 60 \
+  --http \
+  --http.addr 127.0.0.1 \
+  --http.port 8545 \
+  --http.api eth,net,web3,txpool,debug,miner \
+  --datadir ./devdata/txpool-lab/node \
+  --verbosity 5
+  --ipcdisable
+```
+
+参数说明：
+
+- `--dev`
+  - 启动本地开发链
+  - 自动创建一个可直接使用的开发者账户
+- `--dev.period 60`
+  - 开发链每 `60` 秒出一个块
+  - 给 A/B 两个账户留出足够时间，把交易同时送进 txpool 再观察排序
+- `--http`
+  - 开启 HTTP RPC
+- `--http.api eth,net,web3,txpool,debug,miner`
+  - `eth`: 发交易、查余额、查 nonce
+  - `txpool`: 查看池状态
+  - `debug`: 调试辅助
+  - `miner`: 观察构块相关行为
+- `--datadir ./devdata/txpool-lab/node`
+  - 单独隔离实验数据
+- `--ipcdisable`
+  - 避免和本机其他 geth IPC 混淆
+
+为什么默认 `--dev` 下交易会“立刻确认”：
+
+- `--dev.period` 的定义在 [flags.go](../cmd/utils/flags.go#L170)
+  - `0 = mine only if transaction pending`
+- 当开发链的 `period == 0` 时，会在 [simulated_beacon_api.go](../eth/catalyst/simulated_beacon_api.go#L31) 启动一个专门监听新交易事件的 loop
+- 这个 loop 在收到新交易后会立刻调用 [Commit](../eth/catalyst/simulated_beacon_api.go#L58)
+  - 结果就是：交易一进入 txpool，就很快被打进新区块
+- 对“观察 txpool 排队和排序”这个实验来说，默认 `period = 0` 太快，不利于把 A 和 B 的交易同时留在 pending 窗口内
+- 因此这里明确改成 `--dev.period 60`
+  - 让交易先进入 txpool
+  - 再由 miner 在一个更长的时间窗口内读取 `Pending()` 并排序
+
+#### 步骤 3: 查询 dev 账户并给 A/B 充值
+
+先查开发者账户：
+
+```bash
+curl -s http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_accounts","params":[]}'
+```
+
+记返回的第一个地址为 `0x71562b71999873db5b286df957af199ec94617f7`。
+
+然后分别给 A/B 转 `100 ETH`：
+
+给普通账户 A：
+
+```bash
+curl -s http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":2,"method":"eth_sendTransaction","params":[{"from":"0x71562b71999873db5b286df957af199ec94617f7","to":"0x1563915e194D8CfBA1943570603F7606A3115508","value":"0x56BC75E2D63100000"}]}'
+```
+
+给特权账户 B：
+
+```bash
+curl -s http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":3,"method":"eth_sendTransaction","params":[{"from":"0x71562b71999873db5b286df957af199ec94617f7","to":"0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A","value":"0x56BC75E2D63100000"}]}'
+```
+
+其中：
+
+- `0x56BC75E2D63100000`
+  - 即 `100 ETH`
+
+#### 步骤 4: 导入 A/B 到外部钱包或签名工具
+
+由于当前 geth 已移除旧的 `personal/unlock` 工作流，A/B 两个账户更适合：
+
+1. 导入到 Metamask，并连接本地 `http://127.0.0.1:8545`
+2. 或使用你自己的签名工具发送 raw transaction
+
+导入参数：
+
+- 普通账户 A 私钥: [normal.rawkey](../devdata/txpool-lab/normal.rawkey)
+- 特权账户 B 私钥: [priority.rawkey](../devdata/txpool-lab/priority.rawkey)
+
+#### 步骤 5: 给 A/B 发送参数几乎相同的交易
+
+建议先用 legacy tx 做实验，参数最直观。
+
+普通账户 A:
+
+- `from = 0x1563915e194D8CfBA1943570603F7606A3115508`
+- `to = 0x1234000000000000000000000000000000001337`
+- `value = 0x0`
+- `gas = 0x5208`
+- `gasPrice = 0x1`
+- `nonce = 0x0`
+
+特权账户 B:
+
+- `from = 0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A`
+- `to = 0x1234000000000000000000000000000000001337`
+- `value = 0x0`
+- `gas = 0x5208`
+- `gasPrice = 0x1`
+- `nonce = 0x0`
+
+参数解释：
+
+- `gas = 0x5208`
+  - 即 `21000`
+  - 普通转账最小 gas
+- `gasPrice = 0x1`
+  - 即 `1 wei`
+  - 方便观察 boost 前后排序差异
+- `nonce = 0x0`
+  - 首笔交易
+  - 必须保证账户 nonce 连续
+
+为了更明显观察队列行为，可以继续各发第二笔：
+
+- A 第二笔: `nonce = 0x1`
+- B 第二笔: `nonce = 0x1`
+
+#### 步骤 6: 你应该看到什么
+
+当前设置下：
+
+- A 的排序视图
+  - `GasTipCap = 1`
+  - `GasFeeCap = 1`
+- B 的排序视图
+  - `GasTipCap = 101`
+  - `GasFeeCap = 101`
+
+因此在 `Pending()` 导出给 miner 后：
+
+- B 会比 A 更靠前
+
+如果改用 dynamic fee tx，例如原始参数为：
+
+- `GasTipCap = 2`
+- `GasFeeCap = 10`
+
+那么 B 导出后会变成：
+
+- `GasTipCap = 102`
+- `GasFeeCap = 110`
+
+#### 步骤 7: 低 Gas 剔除测试参数
+
+如果继续观察低价交易剔除，可以复用 dev 账户直接发送低价交易：
+
+```bash
+python3 scripts/txpool_low_gas_flood.py \
+  --rpc http://127.0.0.1:8545 \
+  --from 0x71562b71999873db5b286df957af199ec94617f7 \
+  --to 0x1563915e194D8CfBA1943570603F7606A3115508 \
+  --count 500 \
+  --gas-price 0x1
+```
+
+参数说明：
+
+- `--from`
+  - 用 dev 账户最方便
+- `--to`
+  - 任意有效地址都可以
+  - 这里直接填普通账户 A
+- `--count 500`
+  - 一次性压入 500 笔低价交易
+- `--gas-price 0x1`
+  - 极低价格，便于观察 underpriced / pruning 行为
+
+#### 步骤 8: 观察点
+
+1. 查看 txpool 状态：
+
+```bash
+curl -s http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":4,"method":"txpool_status","params":[]}'
+
+ ```
+
+```bash
+  curl -s http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":5,"method":"txpool_content","params":[]}'
+
+```
+
+2. 看 geth 日志中的：
+
+- `Discarding underpriced transaction`
+- `Removed fairness-exceeding pending transaction`
+- `Removing cap-exceeding queued transaction`
+
+3. 观察出块顺序：
+
+- 若 A 和 B 原始价格接近
+- B 应该因为 `PriorityFeeBoost` 被更早选中
+
+简化后的结论：
 
 1. 准备两个账户
    - 普通账户 A
@@ -479,6 +758,59 @@ python3 scripts/txpool_low_gas_flood.py \
 - 池满后更低价交易被淘汰
 - queue 超限后旧账户交易被驱逐
 - pending 超限后大户尾部交易被裁剪
+
+### 4.6 实验结果与结论
+
+本次实验已经实际复现了两类关键 txpool 保护行为。
+
+实验日志 1:
+
+```text
+TRACE[04-09|15:36:56.459] legacypool/legacypool.go:732 Discarding underpriced transaction hash=c186ef..bc2a4f gasTipCap=1 gasFeeCap=1
+TRACE[04-09|15:36:56.459] legacypool/legacypool.go:732 Discarding underpriced transaction hash=f742ac..bba0d7 gasTipCap=1 gasFeeCap=1
+TRACE[04-09|15:36:56.459] legacypool/legacypool.go:732 Discarding underpriced transaction hash=40f492..0a6c6a gasTipCap=1 gasFeeCap=1
+```
+
+对应源码：
+
+- [legacypool.go](../core/txpool/legacypool/legacypool.go#L729)
+- [legacypool.go](../core/txpool/legacypool/legacypool.go#L732)
+
+结论：
+
+- 当 `pool.all.Slots()+numSlots(tx) > GlobalSlots+GlobalQueue` 时，txpool 进入容量保护分支
+- 如果新交易经 `priced.Underpriced(tx)` 判定为价格不足，就会在 `add()` 阶段被直接拒绝
+- 这类交易不会进入 `pending` 或 `queue`
+- 当前日志中的 `gasTipCap=1 gasFeeCap=1` 说明被拒绝的是低价洪泛交易
+
+实验日志 2:
+
+```text
+TRACE[04-09|15:37:57.923] legacypool/legacypool.go:1529 Removed fairness-exceeding pending transaction hash=6d6fcc..9675e6
+TRACE[04-09|15:37:57.923] legacypool/legacypool.go:1529 Removed fairness-exceeding pending transaction hash=2cc729..d74ce2
+TRACE[04-09|15:37:57.923] legacypool/legacypool.go:1529 Removed fairness-exceeding pending transaction hash=135da3..223202
+```
+
+对应源码：
+
+- [legacypool.go](../core/txpool/legacypool/legacypool.go#L1474)
+- [legacypool.go](../core/txpool/legacypool/legacypool.go#L1529)
+
+结论：
+
+- 当 `pending > GlobalSlots` 时，`truncatePending()` 会启动公平性裁剪
+- 如果某个账户占用的 `pending` 槽位超过 `AccountSlots`，它会被视为 offender
+- Geth 会从这类账户的高 nonce 尾部交易开始裁剪
+- 因此这类日志证明：不仅新交易会被拒绝，已经在 `pending` 中的交易也可能被删除
+
+综合结论：
+
+- 低 Gas 洪泛可以先把大量连续 nonce 交易推进 `pending`
+- 当池接近或达到容量边界时，新的低价交易会触发 `Discarding underpriced transaction`
+- 当全局 `pending` 压力继续升高时，`truncatePending()` 会触发 `Removed fairness-exceeding pending transaction`
+- 这两组真实日志共同证明了 Geth 交易池的两层保护机制：
+  - 入池阶段按价格拒绝更差的新交易
+  - 池内维持阶段按公平性裁剪超额账户的尾部交易
 
 ## 5. 预期现象总结
 
