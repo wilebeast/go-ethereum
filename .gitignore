@@ -72,3 +72,5 @@ eth/tracers/internal/tracetest/__debug_bin4125996377
 core/__debug_bin2233945801
 my-geth
 core/txpool/legacypool/__debug_bin585423071
+.tools/*/*
+*/*/__debug_bin*
