@@ -1,0 +1,859 @@
+{
+  "title": "EVM Execution Visualizer",
+  "generatedAt": "2026-04-10T14:45:20+08:00",
+  "contract": {
+    "name": "StoreOrLoad",
+    "yulSource": "object \"StoreOrLoad\" {\n    code {\n        datacopy(0, dataoffset(\"runtime\"), datasize(\"runtime\"))\n        return(0, datasize(\"runtime\"))\n    }\n\n    object \"runtime\" {\n        code {\n            switch calldatasize()\n            case 0 {\n                mstore(0, sload(0))\n                return(0, 32)\n            }\n            default {\n                sstore(0, calldataload(0))\n                mstore(0, sload(0))\n                return(0, 32)\n            }\n        }\n    }\n}",
+    "runtimeBytecode": "0x36600f5760005460005260206000f35b60003560005560005460005260206000f3",
+    "initBytecode": "0x6021600c60003960216000f336600f5760005460005260206000f35b60003560005560005460005260206000f3"
+  },
+  "contractAddress": "0x5DDDfCe53EE040D9EB21AFbC0aE1BB4Dbb0BA643",
+  "scenarios": [
+    {
+      "id": "read_empty",
+      "name": "Read slot0 before any write",
+      "description": "Empty calldata triggers the read branch and returns slot 0.",
+      "inputHex": "0x",
+      "returnHex": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "failed": false,
+      "gasLimit": 1000000,
+      "actualGasUsed": 2133,
+      "manualGasUsed": 2133,
+      "gasDelta": 0,
+      "gasBreakdown": [
+        {
+          "op": "CALLDATASIZE",
+          "cost": 2,
+          "note": "VeryLow",
+          "runningTotal": 2
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Push write-branch destination",
+          "runningTotal": 5
+        },
+        {
+          "op": "JUMPI",
+          "cost": 10,
+          "note": "Condition is false but opcode still costs 10",
+          "runningTotal": 15
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Push slot 0",
+          "runningTotal": 18
+        },
+        {
+          "op": "SLOAD",
+          "cost": 2100,
+          "note": "Cold slot access under Berlin/London rules",
+          "runningTotal": 2118
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Memory offset 0",
+          "runningTotal": 2121
+        },
+        {
+          "op": "MSTORE",
+          "cost": 6,
+          "note": "3 base + 3 memory expansion to one 32-byte word",
+          "runningTotal": 2127
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Return size",
+          "runningTotal": 2130
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Return offset",
+          "runningTotal": 2133
+        },
+        {
+          "op": "RETURN",
+          "cost": 0,
+          "note": "No extra memory expansion",
+          "runningTotal": 2133
+        }
+      ],
+      "steps": [
+        {
+          "index": 0,
+          "pc": 0,
+          "op": "CALLDATASIZE",
+          "gas": 1000000,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 0,
+          "gasAfter": 999998
+        },
+        {
+          "index": 1,
+          "pc": 1,
+          "op": "PUSH1",
+          "gas": 999998,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2,
+          "gasAfter": 999995
+        },
+        {
+          "index": 2,
+          "pc": 3,
+          "op": "JUMPI",
+          "gas": 999995,
+          "gasCost": 10,
+          "depth": 1,
+          "stack": [
+            "0xf",
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 5,
+          "gasAfter": 999985
+        },
+        {
+          "index": 3,
+          "pc": 4,
+          "op": "PUSH1",
+          "gas": 999985,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 15,
+          "gasAfter": 999982
+        },
+        {
+          "index": 4,
+          "pc": 6,
+          "op": "SLOAD",
+          "gas": 999982,
+          "gasCost": 2100,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {
+            "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "gasUsedBefore": 18,
+          "gasAfter": 997882
+        },
+        {
+          "index": 5,
+          "pc": 7,
+          "op": "PUSH1",
+          "gas": 997882,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2118,
+          "gasAfter": 997879
+        },
+        {
+          "index": 6,
+          "pc": 9,
+          "op": "MSTORE",
+          "gas": 997879,
+          "gasCost": 6,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2121,
+          "gasAfter": 997873
+        },
+        {
+          "index": 7,
+          "pc": 10,
+          "op": "PUSH1",
+          "gas": 997873,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": [
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "storage": {},
+          "gasUsedBefore": 2127,
+          "gasAfter": 997870
+        },
+        {
+          "index": 8,
+          "pc": 12,
+          "op": "PUSH1",
+          "gas": 997870,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x20"
+          ],
+          "memory": [
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "storage": {},
+          "gasUsedBefore": 2130,
+          "gasAfter": 997867
+        },
+        {
+          "index": 9,
+          "pc": 14,
+          "op": "RETURN",
+          "gas": 997867,
+          "gasCost": 0,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x20"
+          ],
+          "memory": [
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          "storage": {},
+          "gasUsedBefore": 2133,
+          "gasAfter": 997867
+        }
+      ],
+      "finalStorage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "id": "write_value",
+      "name": "Write 0x2a into slot0",
+      "description": "A 32-byte calldata word triggers the write branch, stores slot 0, then reads it back.",
+      "inputHex": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "returnHex": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "failed": false,
+      "gasLimit": 1000000,
+      "actualGasUsed": 22243,
+      "manualGasUsed": 22243,
+      "gasDelta": 0,
+      "gasBreakdown": [
+        {
+          "op": "CALLDATASIZE",
+          "cost": 2,
+          "note": "VeryLow",
+          "runningTotal": 2
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Push write-branch destination",
+          "runningTotal": 5
+        },
+        {
+          "op": "JUMPI",
+          "cost": 10,
+          "note": "Branch into the write path",
+          "runningTotal": 15
+        },
+        {
+          "op": "JUMPDEST",
+          "cost": 1,
+          "note": "Mark branch target",
+          "runningTotal": 16
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Slot 0",
+          "runningTotal": 19
+        },
+        {
+          "op": "CALLDATALOAD",
+          "cost": 3,
+          "note": "Read the 32-byte argument",
+          "runningTotal": 22
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Push slot 0 for SSTORE",
+          "runningTotal": 25
+        },
+        {
+          "op": "SSTORE",
+          "cost": 22100,
+          "note": "Cold zero-\u003enonzero write: 2100 cold access + 20000 set cost",
+          "runningTotal": 22125
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Slot 0",
+          "runningTotal": 22128
+        },
+        {
+          "op": "SLOAD",
+          "cost": 100,
+          "note": "Warm read of the same slot after SSTORE",
+          "runningTotal": 22228
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Memory offset 0",
+          "runningTotal": 22231
+        },
+        {
+          "op": "MSTORE",
+          "cost": 6,
+          "note": "3 base + 3 memory expansion to one 32-byte word",
+          "runningTotal": 22237
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Return size",
+          "runningTotal": 22240
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Return offset",
+          "runningTotal": 22243
+        },
+        {
+          "op": "RETURN",
+          "cost": 0,
+          "note": "No extra memory expansion",
+          "runningTotal": 22243
+        }
+      ],
+      "steps": [
+        {
+          "index": 0,
+          "pc": 0,
+          "op": "CALLDATASIZE",
+          "gas": 1000000,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 0,
+          "gasAfter": 999998
+        },
+        {
+          "index": 1,
+          "pc": 1,
+          "op": "PUSH1",
+          "gas": 999998,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x20"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2,
+          "gasAfter": 999995
+        },
+        {
+          "index": 2,
+          "pc": 3,
+          "op": "JUMPI",
+          "gas": 999995,
+          "gasCost": 10,
+          "depth": 1,
+          "stack": [
+            "0xf",
+            "0x20"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 5,
+          "gasAfter": 999985
+        },
+        {
+          "index": 3,
+          "pc": 15,
+          "op": "JUMPDEST",
+          "gas": 999985,
+          "gasCost": 1,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 15,
+          "gasAfter": 999984
+        },
+        {
+          "index": 4,
+          "pc": 16,
+          "op": "PUSH1",
+          "gas": 999984,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 16,
+          "gasAfter": 999981
+        },
+        {
+          "index": 5,
+          "pc": 18,
+          "op": "CALLDATALOAD",
+          "gas": 999981,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 19,
+          "gasAfter": 999978
+        },
+        {
+          "index": 6,
+          "pc": 19,
+          "op": "PUSH1",
+          "gas": 999978,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 22,
+          "gasAfter": 999975
+        },
+        {
+          "index": 7,
+          "pc": 21,
+          "op": "SSTORE",
+          "gas": 999975,
+          "gasCost": 22100,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {
+            "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
+          },
+          "gasUsedBefore": 25,
+          "gasAfter": 977875
+        },
+        {
+          "index": 8,
+          "pc": 22,
+          "op": "PUSH1",
+          "gas": 977875,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 22125,
+          "gasAfter": 977872
+        },
+        {
+          "index": 9,
+          "pc": 24,
+          "op": "SLOAD",
+          "gas": 977872,
+          "gasCost": 100,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {
+            "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
+          },
+          "gasUsedBefore": 22128,
+          "gasAfter": 977772
+        },
+        {
+          "index": 10,
+          "pc": 25,
+          "op": "PUSH1",
+          "gas": 977772,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 22228,
+          "gasAfter": 977769
+        },
+        {
+          "index": 11,
+          "pc": 27,
+          "op": "MSTORE",
+          "gas": 977769,
+          "gasCost": 6,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 22231,
+          "gasAfter": 977763
+        },
+        {
+          "index": 12,
+          "pc": 28,
+          "op": "PUSH1",
+          "gas": 977763,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": [
+            "000000000000000000000000000000000000000000000000000000000000002a"
+          ],
+          "storage": {},
+          "gasUsedBefore": 22237,
+          "gasAfter": 977760
+        },
+        {
+          "index": 13,
+          "pc": 30,
+          "op": "PUSH1",
+          "gas": 977760,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x20"
+          ],
+          "memory": [
+            "000000000000000000000000000000000000000000000000000000000000002a"
+          ],
+          "storage": {},
+          "gasUsedBefore": 22240,
+          "gasAfter": 977757
+        },
+        {
+          "index": 14,
+          "pc": 32,
+          "op": "RETURN",
+          "gas": 977757,
+          "gasCost": 0,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x20"
+          ],
+          "memory": [
+            "000000000000000000000000000000000000000000000000000000000000002a"
+          ],
+          "storage": {},
+          "gasUsedBefore": 22243,
+          "gasAfter": 977757
+        }
+      ],
+      "finalStorage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
+      }
+    },
+    {
+      "id": "read_after_write",
+      "name": "Read slot0 after the write",
+      "description": "A second transaction reads the already-populated slot 0. The slot is cold again because each call is a fresh transaction context.",
+      "inputHex": "0x",
+      "returnHex": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "failed": false,
+      "gasLimit": 1000000,
+      "actualGasUsed": 2133,
+      "manualGasUsed": 2133,
+      "gasDelta": 0,
+      "gasBreakdown": [
+        {
+          "op": "CALLDATASIZE",
+          "cost": 2,
+          "note": "VeryLow",
+          "runningTotal": 2
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Push write-branch destination",
+          "runningTotal": 5
+        },
+        {
+          "op": "JUMPI",
+          "cost": 10,
+          "note": "Condition is false but opcode still costs 10",
+          "runningTotal": 15
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Push slot 0",
+          "runningTotal": 18
+        },
+        {
+          "op": "SLOAD",
+          "cost": 2100,
+          "note": "Cold slot access under Berlin/London rules",
+          "runningTotal": 2118
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Memory offset 0",
+          "runningTotal": 2121
+        },
+        {
+          "op": "MSTORE",
+          "cost": 6,
+          "note": "3 base + 3 memory expansion to one 32-byte word",
+          "runningTotal": 2127
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Return size",
+          "runningTotal": 2130
+        },
+        {
+          "op": "PUSH1",
+          "cost": 3,
+          "note": "Return offset",
+          "runningTotal": 2133
+        },
+        {
+          "op": "RETURN",
+          "cost": 0,
+          "note": "No extra memory expansion",
+          "runningTotal": 2133
+        }
+      ],
+      "steps": [
+        {
+          "index": 0,
+          "pc": 0,
+          "op": "CALLDATASIZE",
+          "gas": 1000000,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 0,
+          "gasAfter": 999998
+        },
+        {
+          "index": 1,
+          "pc": 1,
+          "op": "PUSH1",
+          "gas": 999998,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2,
+          "gasAfter": 999995
+        },
+        {
+          "index": 2,
+          "pc": 3,
+          "op": "JUMPI",
+          "gas": 999995,
+          "gasCost": 10,
+          "depth": 1,
+          "stack": [
+            "0xf",
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 5,
+          "gasAfter": 999985
+        },
+        {
+          "index": 3,
+          "pc": 4,
+          "op": "PUSH1",
+          "gas": 999985,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 15,
+          "gasAfter": 999982
+        },
+        {
+          "index": 4,
+          "pc": 6,
+          "op": "SLOAD",
+          "gas": 999982,
+          "gasCost": 2100,
+          "depth": 1,
+          "stack": [
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {
+            "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
+          },
+          "gasUsedBefore": 18,
+          "gasAfter": 997882
+        },
+        {
+          "index": 5,
+          "pc": 7,
+          "op": "PUSH1",
+          "gas": 997882,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2118,
+          "gasAfter": 997879
+        },
+        {
+          "index": 6,
+          "pc": 9,
+          "op": "MSTORE",
+          "gas": 997879,
+          "gasCost": 6,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 2121,
+          "gasAfter": 997873
+        },
+        {
+          "index": 7,
+          "pc": 10,
+          "op": "PUSH1",
+          "gas": 997873,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": null,
+          "memory": [
+            "000000000000000000000000000000000000000000000000000000000000002a"
+          ],
+          "storage": {},
+          "gasUsedBefore": 2127,
+          "gasAfter": 997870
+        },
+        {
+          "index": 8,
+          "pc": 12,
+          "op": "PUSH1",
+          "gas": 997870,
+          "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x20"
+          ],
+          "memory": [
+            "000000000000000000000000000000000000000000000000000000000000002a"
+          ],
+          "storage": {},
+          "gasUsedBefore": 2130,
+          "gasAfter": 997867
+        },
+        {
+          "index": 9,
+          "pc": 14,
+          "op": "RETURN",
+          "gas": 997867,
+          "gasCost": 0,
+          "depth": 1,
+          "stack": [
+            "0x0",
+            "0x20"
+          ],
+          "memory": [
+            "000000000000000000000000000000000000000000000000000000000000002a"
+          ],
+          "storage": {},
+          "gasUsedBefore": 2133,
+          "gasAfter": 997867
+        }
+      ],
+      "finalStorage": {
+        "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
+      }
+    }
+  ],
+  "sourceLinks": [
+    {
+      "label": "EVM interpreter loop",
+      "path": "~/core/vm/interpreter.go"
+    },
+    {
+      "label": "Opcode gas tables",
+      "path": "~/core/vm/gas_table.go"
+    },
+    {
+      "label": "Opcode definitions",
+      "path": "~/core/vm/opcodes.go"
+    },
+    {
+      "label": "Stack implementation",
+      "path": "~/core/vm/stack.go"
+    },
+    {
+      "label": "Memory implementation",
+      "path": "~/core/vm/memory.go"
+    },
+    {
+      "label": "Struct logger tracer",
+      "path": "~/eth/tracers/logger/logger.go"
+    }
+  ],
+  "manualSummary": [
+    {
+      "title": "Read path",
+      "body": "CALLDATASIZE, PUSH1, JUMPI, PUSH1, cold SLOAD, PUSH1, MSTORE (3 + 3 memory expansion), PUSH1, PUSH1, RETURN = 2133 gas."
+    },
+    {
+      "title": "Write path",
+      "body": "CALLDATASIZE, PUSH1, JUMPI, JUMPDEST, PUSH1, CALLDATALOAD, PUSH1, cold SSTORE zero-\u003enonzero (22100), PUSH1, warm SLOAD (100), PUSH1, MSTORE (3 + 3 memory expansion), PUSH1, PUSH1, RETURN = 22243 gas."
+    },
+    {
+      "title": "Transaction boundary",
+      "body": "The second read still pays a cold SLOAD because Geth rebuilds warm access sets per transaction in StateDB.Prepare()."
+    }
+  ]
+}
