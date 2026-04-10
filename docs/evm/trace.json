@@ -1,11 +1,12 @@
 {
   "title": "EVM Execution Visualizer",
-  "generatedAt": "2026-04-10T14:45:20+08:00",
+  "generatedAt": "2026-04-10T23:37:16+08:00",
   "contract": {
     "name": "StoreOrLoad",
-    "yulSource": "object \"StoreOrLoad\" {\n    code {\n        datacopy(0, dataoffset(\"runtime\"), datasize(\"runtime\"))\n        return(0, datasize(\"runtime\"))\n    }\n\n    object \"runtime\" {\n        code {\n            switch calldatasize()\n            case 0 {\n                mstore(0, sload(0))\n                return(0, 32)\n            }\n            default {\n                sstore(0, calldataload(0))\n                mstore(0, sload(0))\n                return(0, 32)\n            }\n        }\n    }\n}",
-    "runtimeBytecode": "0x36600f5760005460005260206000f35b60003560005560005460005260206000f3",
-    "initBytecode": "0x6021600c60003960216000f336600f5760005460005260206000f35b60003560005560005460005260206000f3"
+    "yulSource": "object \"StoreOrLoad\" {\n    code {\n        datacopy(0, dataoffset(\"runtime\"), datasize(\"runtime\"))\n        return(0, datasize(\"runtime\"))\n    }\n\n    object \"runtime\" {\n        code {\n            switch calldatasize()\n            case 0 {\n                mstore(0, sload(0))\n                return(0, 32)\n            }\n            default {\n                sstore(0, calldataload(0))\n                mstore(0, sload(0))\n                return(0, 32)\n            }\n        }\n    }\n}\n",
+    "runtimeBytecode": "0x365f146012575f355f555f545f5260205ff35b5f545f5260205ff3",
+    "initBytecode": "0x601b600b5f39601b5ff3fe365f146012575f355f555f545f5260205ff35b5f545f5260205ff3",
+    "buildMode": "compiled from Yul source via local solc --standard-json"
   },
   "contractAddress": "0x5DDDfCe53EE040D9EB21AFbC0aE1BB4Dbb0BA643",
   "scenarios": [
@@ -17,9 +18,9 @@
       "returnHex": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "failed": false,
       "gasLimit": 1000000,
-      "actualGasUsed": 2133,
+      "actualGasUsed": 2136,
       "manualGasUsed": 2133,
-      "gasDelta": 0,
+      "gasDelta": 3,
       "gasBreakdown": [
         {
           "op": "CALLDATASIZE",
@@ -99,9 +100,9 @@
         {
           "index": 1,
           "pc": 1,
-          "op": "PUSH1",
+          "op": "PUSH0",
           "gas": 999998,
-          "gasCost": 3,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x0"
@@ -109,42 +110,86 @@
           "memory": null,
           "storage": {},
           "gasUsedBefore": 2,
-          "gasAfter": 999995
+          "gasAfter": 999996
         },
         {
           "index": 2,
-          "pc": 3,
-          "op": "JUMPI",
-          "gas": 999995,
-          "gasCost": 10,
+          "pc": 2,
+          "op": "EQ",
+          "gas": 999996,
+          "gasCost": 3,
           "depth": 1,
           "stack": [
-            "0xf",
+            "0x0",
             "0x0"
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 5,
-          "gasAfter": 999985
+          "gasUsedBefore": 4,
+          "gasAfter": 999993
         },
         {
           "index": 3,
-          "pc": 4,
+          "pc": 3,
           "op": "PUSH1",
-          "gas": 999985,
+          "gas": 999993,
           "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x1"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 7,
+          "gasAfter": 999990
+        },
+        {
+          "index": 4,
+          "pc": 5,
+          "op": "JUMPI",
+          "gas": 999990,
+          "gasCost": 10,
+          "depth": 1,
+          "stack": [
+            "0x12",
+            "0x1"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 10,
+          "gasAfter": 999980
+        },
+        {
+          "index": 5,
+          "pc": 18,
+          "op": "JUMPDEST",
+          "gas": 999980,
+          "gasCost": 1,
           "depth": 1,
           "stack": null,
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 15,
-          "gasAfter": 999982
+          "gasUsedBefore": 20,
+          "gasAfter": 999979
         },
         {
-          "index": 4,
-          "pc": 6,
+          "index": 6,
+          "pc": 19,
+          "op": "PUSH0",
+          "gas": 999979,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 21,
+          "gasAfter": 999977
+        },
+        {
+          "index": 7,
+          "pc": 20,
           "op": "SLOAD",
-          "gas": 999982,
+          "gas": 999977,
           "gasCost": 2100,
           "depth": 1,
           "stack": [
@@ -154,29 +199,29 @@
           "storage": {
             "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000000"
           },
-          "gasUsedBefore": 18,
-          "gasAfter": 997882
+          "gasUsedBefore": 23,
+          "gasAfter": 997877
         },
         {
-          "index": 5,
-          "pc": 7,
-          "op": "PUSH1",
-          "gas": 997882,
-          "gasCost": 3,
+          "index": 8,
+          "pc": 21,
+          "op": "PUSH0",
+          "gas": 997877,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x0"
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 2118,
-          "gasAfter": 997879
+          "gasUsedBefore": 2123,
+          "gasAfter": 997875
         },
         {
-          "index": 6,
-          "pc": 9,
+          "index": 9,
+          "pc": 22,
           "op": "MSTORE",
-          "gas": 997879,
+          "gas": 997875,
           "gasCost": 6,
           "depth": 1,
           "stack": [
@@ -185,14 +230,14 @@
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 2121,
-          "gasAfter": 997873
+          "gasUsedBefore": 2125,
+          "gasAfter": 997869
         },
         {
-          "index": 7,
-          "pc": 10,
+          "index": 10,
+          "pc": 23,
           "op": "PUSH1",
-          "gas": 997873,
+          "gas": 997869,
           "gasCost": 3,
           "depth": 1,
           "stack": null,
@@ -200,15 +245,15 @@
             "0000000000000000000000000000000000000000000000000000000000000000"
           ],
           "storage": {},
-          "gasUsedBefore": 2127,
-          "gasAfter": 997870
+          "gasUsedBefore": 2131,
+          "gasAfter": 997866
         },
         {
-          "index": 8,
-          "pc": 12,
-          "op": "PUSH1",
-          "gas": 997870,
-          "gasCost": 3,
+          "index": 11,
+          "pc": 25,
+          "op": "PUSH0",
+          "gas": 997866,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x20"
@@ -217,14 +262,14 @@
             "0000000000000000000000000000000000000000000000000000000000000000"
           ],
           "storage": {},
-          "gasUsedBefore": 2130,
-          "gasAfter": 997867
+          "gasUsedBefore": 2134,
+          "gasAfter": 997864
         },
         {
-          "index": 9,
-          "pc": 14,
+          "index": 12,
+          "pc": 26,
           "op": "RETURN",
-          "gas": 997867,
+          "gas": 997864,
           "gasCost": 0,
           "depth": 1,
           "stack": [
@@ -235,8 +280,8 @@
             "0000000000000000000000000000000000000000000000000000000000000000"
           ],
           "storage": {},
-          "gasUsedBefore": 2133,
-          "gasAfter": 997867
+          "gasUsedBefore": 2136,
+          "gasAfter": 997864
         }
       ],
       "finalStorage": {
@@ -251,9 +296,9 @@
       "returnHex": "0x000000000000000000000000000000000000000000000000000000000000002a",
       "failed": false,
       "gasLimit": 1000000,
-      "actualGasUsed": 22243,
+      "actualGasUsed": 22242,
       "manualGasUsed": 22243,
-      "gasDelta": 0,
+      "gasDelta": -1,
       "gasBreakdown": [
         {
           "op": "CALLDATASIZE",
@@ -363,9 +408,9 @@
         {
           "index": 1,
           "pc": 1,
-          "op": "PUSH1",
+          "op": "PUSH0",
           "gas": 999998,
-          "gasCost": 3,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x20"
@@ -373,55 +418,29 @@
           "memory": null,
           "storage": {},
           "gasUsedBefore": 2,
-          "gasAfter": 999995
+          "gasAfter": 999996
         },
         {
           "index": 2,
-          "pc": 3,
-          "op": "JUMPI",
-          "gas": 999995,
-          "gasCost": 10,
+          "pc": 2,
+          "op": "EQ",
+          "gas": 999996,
+          "gasCost": 3,
           "depth": 1,
           "stack": [
-            "0xf",
+            "0x0",
             "0x20"
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 5,
-          "gasAfter": 999985
+          "gasUsedBefore": 4,
+          "gasAfter": 999993
         },
         {
           "index": 3,
-          "pc": 15,
-          "op": "JUMPDEST",
-          "gas": 999985,
-          "gasCost": 1,
-          "depth": 1,
-          "stack": null,
-          "memory": null,
-          "storage": {},
-          "gasUsedBefore": 15,
-          "gasAfter": 999984
-        },
-        {
-          "index": 4,
-          "pc": 16,
+          "pc": 3,
           "op": "PUSH1",
-          "gas": 999984,
-          "gasCost": 3,
-          "depth": 1,
-          "stack": null,
-          "memory": null,
-          "storage": {},
-          "gasUsedBefore": 16,
-          "gasAfter": 999981
-        },
-        {
-          "index": 5,
-          "pc": 18,
-          "op": "CALLDATALOAD",
-          "gas": 999981,
+          "gas": 999993,
           "gasCost": 3,
           "depth": 1,
           "stack": [
@@ -429,18 +448,47 @@
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 19,
+          "gasUsedBefore": 7,
+          "gasAfter": 999990
+        },
+        {
+          "index": 4,
+          "pc": 5,
+          "op": "JUMPI",
+          "gas": 999990,
+          "gasCost": 10,
+          "depth": 1,
+          "stack": [
+            "0x12",
+            "0x0"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 10,
+          "gasAfter": 999980
+        },
+        {
+          "index": 5,
+          "pc": 6,
+          "op": "PUSH0",
+          "gas": 999980,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 20,
           "gasAfter": 999978
         },
         {
           "index": 6,
-          "pc": 19,
-          "op": "PUSH1",
+          "pc": 7,
+          "op": "CALLDATALOAD",
           "gas": 999978,
           "gasCost": 3,
           "depth": 1,
           "stack": [
-            "0x2a"
+            "0x0"
           ],
           "memory": null,
           "storage": {},
@@ -449,9 +497,24 @@
         },
         {
           "index": 7,
-          "pc": 21,
-          "op": "SSTORE",
+          "pc": 8,
+          "op": "PUSH0",
           "gas": 999975,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": [
+            "0x2a"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 25,
+          "gasAfter": 999973
+        },
+        {
+          "index": 8,
+          "pc": 9,
+          "op": "SSTORE",
+          "gas": 999973,
           "gasCost": 22100,
           "depth": 1,
           "stack": [
@@ -462,27 +525,27 @@
           "storage": {
             "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
           },
-          "gasUsedBefore": 25,
-          "gasAfter": 977875
+          "gasUsedBefore": 27,
+          "gasAfter": 977873
         },
         {
-          "index": 8,
-          "pc": 22,
-          "op": "PUSH1",
-          "gas": 977875,
-          "gasCost": 3,
+          "index": 9,
+          "pc": 10,
+          "op": "PUSH0",
+          "gas": 977873,
+          "gasCost": 2,
           "depth": 1,
           "stack": null,
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 22125,
-          "gasAfter": 977872
+          "gasUsedBefore": 22127,
+          "gasAfter": 977871
         },
         {
-          "index": 9,
-          "pc": 24,
+          "index": 10,
+          "pc": 11,
           "op": "SLOAD",
-          "gas": 977872,
+          "gas": 977871,
           "gasCost": 100,
           "depth": 1,
           "stack": [
@@ -492,27 +555,27 @@
           "storage": {
             "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
           },
-          "gasUsedBefore": 22128,
-          "gasAfter": 977772
+          "gasUsedBefore": 22129,
+          "gasAfter": 977771
         },
         {
-          "index": 10,
-          "pc": 25,
-          "op": "PUSH1",
-          "gas": 977772,
-          "gasCost": 3,
+          "index": 11,
+          "pc": 12,
+          "op": "PUSH0",
+          "gas": 977771,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x2a"
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 22228,
+          "gasUsedBefore": 22229,
           "gasAfter": 977769
         },
         {
-          "index": 11,
-          "pc": 27,
+          "index": 12,
+          "pc": 13,
           "op": "MSTORE",
           "gas": 977769,
           "gasCost": 6,
@@ -527,8 +590,8 @@
           "gasAfter": 977763
         },
         {
-          "index": 12,
-          "pc": 28,
+          "index": 13,
+          "pc": 14,
           "op": "PUSH1",
           "gas": 977763,
           "gasCost": 3,
@@ -542,11 +605,11 @@
           "gasAfter": 977760
         },
         {
-          "index": 13,
-          "pc": 30,
-          "op": "PUSH1",
+          "index": 14,
+          "pc": 16,
+          "op": "PUSH0",
           "gas": 977760,
-          "gasCost": 3,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x20"
@@ -556,13 +619,13 @@
           ],
           "storage": {},
           "gasUsedBefore": 22240,
-          "gasAfter": 977757
+          "gasAfter": 977758
         },
         {
-          "index": 14,
-          "pc": 32,
+          "index": 15,
+          "pc": 17,
           "op": "RETURN",
-          "gas": 977757,
+          "gas": 977758,
           "gasCost": 0,
           "depth": 1,
           "stack": [
@@ -573,8 +636,8 @@
             "000000000000000000000000000000000000000000000000000000000000002a"
           ],
           "storage": {},
-          "gasUsedBefore": 22243,
-          "gasAfter": 977757
+          "gasUsedBefore": 22242,
+          "gasAfter": 977758
         }
       ],
       "finalStorage": {
@@ -589,9 +652,9 @@
       "returnHex": "0x000000000000000000000000000000000000000000000000000000000000002a",
       "failed": false,
       "gasLimit": 1000000,
-      "actualGasUsed": 2133,
+      "actualGasUsed": 2136,
       "manualGasUsed": 2133,
-      "gasDelta": 0,
+      "gasDelta": 3,
       "gasBreakdown": [
         {
           "op": "CALLDATASIZE",
@@ -671,9 +734,9 @@
         {
           "index": 1,
           "pc": 1,
-          "op": "PUSH1",
+          "op": "PUSH0",
           "gas": 999998,
-          "gasCost": 3,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x0"
@@ -681,42 +744,86 @@
           "memory": null,
           "storage": {},
           "gasUsedBefore": 2,
-          "gasAfter": 999995
+          "gasAfter": 999996
         },
         {
           "index": 2,
-          "pc": 3,
-          "op": "JUMPI",
-          "gas": 999995,
-          "gasCost": 10,
+          "pc": 2,
+          "op": "EQ",
+          "gas": 999996,
+          "gasCost": 3,
           "depth": 1,
           "stack": [
-            "0xf",
+            "0x0",
             "0x0"
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 5,
-          "gasAfter": 999985
+          "gasUsedBefore": 4,
+          "gasAfter": 999993
         },
         {
           "index": 3,
-          "pc": 4,
+          "pc": 3,
           "op": "PUSH1",
-          "gas": 999985,
+          "gas": 999993,
           "gasCost": 3,
+          "depth": 1,
+          "stack": [
+            "0x1"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 7,
+          "gasAfter": 999990
+        },
+        {
+          "index": 4,
+          "pc": 5,
+          "op": "JUMPI",
+          "gas": 999990,
+          "gasCost": 10,
+          "depth": 1,
+          "stack": [
+            "0x12",
+            "0x1"
+          ],
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 10,
+          "gasAfter": 999980
+        },
+        {
+          "index": 5,
+          "pc": 18,
+          "op": "JUMPDEST",
+          "gas": 999980,
+          "gasCost": 1,
           "depth": 1,
           "stack": null,
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 15,
-          "gasAfter": 999982
+          "gasUsedBefore": 20,
+          "gasAfter": 999979
         },
         {
-          "index": 4,
-          "pc": 6,
+          "index": 6,
+          "pc": 19,
+          "op": "PUSH0",
+          "gas": 999979,
+          "gasCost": 2,
+          "depth": 1,
+          "stack": null,
+          "memory": null,
+          "storage": {},
+          "gasUsedBefore": 21,
+          "gasAfter": 999977
+        },
+        {
+          "index": 7,
+          "pc": 20,
           "op": "SLOAD",
-          "gas": 999982,
+          "gas": 999977,
           "gasCost": 2100,
           "depth": 1,
           "stack": [
@@ -726,29 +833,29 @@
           "storage": {
             "0x0000000000000000000000000000000000000000000000000000000000000000": "0x000000000000000000000000000000000000000000000000000000000000002a"
           },
-          "gasUsedBefore": 18,
-          "gasAfter": 997882
+          "gasUsedBefore": 23,
+          "gasAfter": 997877
         },
         {
-          "index": 5,
-          "pc": 7,
-          "op": "PUSH1",
-          "gas": 997882,
-          "gasCost": 3,
+          "index": 8,
+          "pc": 21,
+          "op": "PUSH0",
+          "gas": 997877,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x2a"
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 2118,
-          "gasAfter": 997879
+          "gasUsedBefore": 2123,
+          "gasAfter": 997875
         },
         {
-          "index": 6,
-          "pc": 9,
+          "index": 9,
+          "pc": 22,
           "op": "MSTORE",
-          "gas": 997879,
+          "gas": 997875,
           "gasCost": 6,
           "depth": 1,
           "stack": [
@@ -757,14 +864,14 @@
           ],
           "memory": null,
           "storage": {},
-          "gasUsedBefore": 2121,
-          "gasAfter": 997873
+          "gasUsedBefore": 2125,
+          "gasAfter": 997869
         },
         {
-          "index": 7,
-          "pc": 10,
+          "index": 10,
+          "pc": 23,
           "op": "PUSH1",
-          "gas": 997873,
+          "gas": 997869,
           "gasCost": 3,
           "depth": 1,
           "stack": null,
@@ -772,15 +879,15 @@
             "000000000000000000000000000000000000000000000000000000000000002a"
           ],
           "storage": {},
-          "gasUsedBefore": 2127,
-          "gasAfter": 997870
+          "gasUsedBefore": 2131,
+          "gasAfter": 997866
         },
         {
-          "index": 8,
-          "pc": 12,
-          "op": "PUSH1",
-          "gas": 997870,
-          "gasCost": 3,
+          "index": 11,
+          "pc": 25,
+          "op": "PUSH0",
+          "gas": 997866,
+          "gasCost": 2,
           "depth": 1,
           "stack": [
             "0x20"
@@ -789,14 +896,14 @@
             "000000000000000000000000000000000000000000000000000000000000002a"
           ],
           "storage": {},
-          "gasUsedBefore": 2130,
-          "gasAfter": 997867
+          "gasUsedBefore": 2134,
+          "gasAfter": 997864
         },
         {
-          "index": 9,
-          "pc": 14,
+          "index": 12,
+          "pc": 26,
           "op": "RETURN",
-          "gas": 997867,
+          "gas": 997864,
           "gasCost": 0,
           "depth": 1,
           "stack": [
@@ -807,8 +914,8 @@
             "000000000000000000000000000000000000000000000000000000000000002a"
           ],
           "storage": {},
-          "gasUsedBefore": 2133,
-          "gasAfter": 997867
+          "gasUsedBefore": 2136,
+          "gasAfter": 997864
         }
       ],
       "finalStorage": {
@@ -843,6 +950,10 @@
     }
   ],
   "manualSummary": [
+    {
+      "title": "Build mode",
+      "body": "compiled from Yul source via local solc --standard-json"
+    },
     {
       "title": "Read path",
       "body": "CALLDATASIZE, PUSH1, JUMPI, PUSH1, cold SLOAD, PUSH1, MSTORE (3 + 3 memory expansion), PUSH1, PUSH1, RETURN = 2133 gas."

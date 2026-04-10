@@ -1,6 +1,6 @@
 # EVM Execution Visualizer
 
-This experiment uses a pure Yul contract and Geth's own EVM runtime + `StructLogger` tracer to capture every opcode step.
+This experiment uses a pure Yul contract, compiles it with local `solc` when available, and then uses Geth's own EVM runtime + `StructLogger` tracer to capture every opcode step.
 
 Files:
 
@@ -26,14 +26,25 @@ The contract has two branches:
 Runtime bytecode:
 
 ```text
-0x36600f5760005460005260206000f35b60003560005560005460005260206000f3
+0x365f146012575f355f555f545f5260205ff35b5f545f5260205ff3
 ```
 
 Init bytecode:
 
 ```text
-0x6021600c60003960216000f336600f5760005460005260206000f35b60003560005560005460005260206000f3
+0x601b600b5f39601b5ff3fe365f146012575f355f555f545f5260205ff35b5f545f5260205ff3
 ```
+
+Build behavior:
+
+- preferred path
+  - compile [store_or_load.yul](~/docs/evm/store_or_load.yul) with local `solc --standard-json`
+- fallback path
+  - if `solc` is missing, use embedded bytecode constants so the demo still runs
+
+The actual path used for a given run is recorded in [trace.json](~/docs/evm/trace.json) under:
+
+- `contract.buildMode`
 
 ## Run
 
@@ -41,6 +52,7 @@ Generate trace JSON and the standalone HTML viewer:
 
 ```bash
 go run ./cmd/evmvisualizer \
+  --yul docs/evm/store_or_load.yul \
   --json docs/evm/trace.json \
   --html docs/evm/visualizer.html
 ```
@@ -54,6 +66,7 @@ The HTML is self-contained. Open it in any browser or IDE preview that can rende
 - Memory snapshot before each opcode
 - Storage snapshot on `SLOAD` / `SSTORE`
 - Manual gas breakdown vs Geth-measured gas
+- The active build mode, so you can verify whether the run used compiled or fallback bytecode
 
 ## Relevant Source
 

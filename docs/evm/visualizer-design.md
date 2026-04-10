@@ -25,7 +25,7 @@ It solves four concrete problems:
 
 Current scope:
 
-- Pure Yul contract embedded as source text and fixed bytecode
+- Pure Yul contract compiled from source via local `solc` when available
 - In-process execution via `core/vm/runtime`
 - Tracing via Geth `StructLogger`
 - Static HTML output with embedded JSON payload
@@ -45,7 +45,7 @@ Current non-goals:
 Yul source
    |
    v
-handwritten runtime/init bytecode
+solc --standard-json
    |
    v
 runtime.Create(initcode)
@@ -93,19 +93,15 @@ Important relation between source and bytecode in this project:
 ```text
 store_or_load.yul
    |
-   |  human-readable specification
-   |  (for explanation and inspection)
+   |  human-readable source of truth
    v
-yulSource string constant
+local solc available?
    |
-   |  documents the intended contract logic
-   |  but is not compiled at runtime by this program
-   v
-runtimeBytecodeHex / initBytecodeHex
-   |
-   |  hand-provided bytecode constants
-   v
-common.FromHex(...)
+   +---------------------------+-----------------------------+
+   | yes                       | no                          |
+   v                           v
+compile Yul with              use embedded fallback
+solc --standard-json          bytecode constants
    |
    v
 runtimeCode / initCode []byte
@@ -120,24 +116,24 @@ contract deployed with runtimeBytecodeHex
 This means:
 
 - the Yul file explains the contract logic
-- the program does not invoke a Yul compiler
-- `initBytecodeHex` is not generated inside `main.go`
-- `initBytecodeHex` and `runtimeBytecodeHex` are already prepared and embedded as constants
+- the normal path is to compile that Yul source with local `solc`
+- the embedded bytecode is only a fallback for environments without `solc`
+- `trace.json` records which path was used via `contract.buildMode`
 
 So the current implementation is:
-
-```text
-Yul source for documentation
-+ handwritten bytecode for execution
-```
-
-not:
 
 ```text
 Yul source
 -> compiler
 -> initcode
 -> runtime code
+```
+
+with:
+
+```text
+embedded bytecode fallback
+only when solc is unavailable
 ```
 
 The runtime code has two branches:
@@ -298,7 +294,7 @@ Flow:
 Deployment boundary:
 
 ```text
-initBytecodeHex
+compiled init bytecode
    |
    v
 common.FromHex(initBytecodeHex)
@@ -364,153 +360,163 @@ This pattern means:
 
 Bytecode derivation for this project:
 
-The bytecode constants in [main.go](../../cmd/evmvisualizer/main.go) are handwritten from the Yul logic.
+The current runtime and init bytecode are produced by compiling the Yul source with local `solc --standard-json`.
+The embedded constants in [main.go](../../cmd/evmvisualizer/main.go) are only used as a fallback when `solc` is missing.
 
 Runtime bytecode:
 
 ```text
-0x36600f5760005460005260206000f35b60003560005560005460005260206000f3
+0x365f146012575f355f555f545f5260205ff35b5f545f5260205ff3
 ```
 
 Disassembly:
 
 ```text
 00: 36        CALLDATASIZE
-01: 60 0f     PUSH1 0x0f
-03: 57        JUMPI
+01: 5f        PUSH0
+02: 14        EQ
+03: 60 12     PUSH1 0x12
+05: 57        JUMPI
 
-04: 60 00     PUSH1 0x00
-06: 54        SLOAD
-07: 60 00     PUSH1 0x00
-09: 52        MSTORE
-0a: 60 20     PUSH1 0x20
-0c: 60 00     PUSH1 0x00
-0e: f3        RETURN
+06: 5f        PUSH0
+07: 35        CALLDATALOAD
+08: 5f        PUSH0
+09: 55        SSTORE
+0a: 5f        PUSH0
+0b: 54        SLOAD
+0c: 5f        PUSH0
+0d: 52        MSTORE
+0e: 60 20     PUSH1 0x20
+10: 5f        PUSH0
+11: f3        RETURN
 
-0f: 5b        JUMPDEST
-10: 60 00     PUSH1 0x00
-12: 35        CALLDATALOAD
-13: 60 00     PUSH1 0x00
-15: 55        SSTORE
-16: 60 00     PUSH1 0x00
-18: 54        SLOAD
-19: 60 00     PUSH1 0x00
-1b: 52        MSTORE
-1c: 60 20     PUSH1 0x20
-1e: 60 00     PUSH1 0x00
-20: f3        RETURN
+12: 5b        JUMPDEST
+13: 5f        PUSH0
+14: 54        SLOAD
+15: 5f        PUSH0
+16: 52        MSTORE
+17: 60 20     PUSH1 0x20
+19: 5f        PUSH0
+1a: f3        RETURN
 ```
 
 How it maps to the Yul logic:
 
-- `CALLDATASIZE; PUSH1 0x0f; JUMPI`
-  - if calldata is non-zero, jump to `pc = 0x0f`
-  - `0x0f` is the start of the write branch
-- bytes `0x04` to `0x0e`
-  - read branch
-  - `SLOAD(0) -> MSTORE(0, value) -> RETURN(0, 32)`
-- bytes `0x0f` to `0x20`
+- `CALLDATASIZE; PUSH0; EQ; PUSH1 0x12; JUMPI`
+  - compares `calldatasize()` with zero
+  - if equal, jump to `pc = 0x12`
+  - `0x12` is the start of the read branch
+- bytes `0x06` to `0x11`
   - write branch
   - `CALLDATALOAD(0) -> SSTORE(0, value) -> SLOAD(0) -> MSTORE(0, value) -> RETURN(0, 32)`
+- bytes `0x12` to `0x1a`
+  - read branch
+  - `SLOAD(0) -> MSTORE(0, value) -> RETURN(0, 32)`
 
-Why the jump target is `0x0f`:
+Why the jump target is `0x12`:
 
 ```text
 00: 36
-01: 60
-02: 0f
-03: 57
-04: 60
-05: 00
-06: 54
-07: 60
-08: 00
-09: 52
-0a: 60
-0b: 20
-0c: 60
-0d: 00
-0e: f3
-0f: 5b  <-- first byte of the write branch JUMPDEST
+01: 5f
+02: 14
+03: 60
+04: 12
+05: 57
+06: 5f
+07: 35
+08: 5f
+09: 55
+0a: 5f
+0b: 54
+0c: 5f
+0d: 52
+0e: 60
+0f: 20
+10: 5f
+11: f3
+12: 5b  <-- first byte of the read branch JUMPDEST
 ```
 
-So `PUSH1 0x0f` is a manually calculated branch target.
+So `PUSH1 0x12` is the compiled branch target for the read path.
 
 Init bytecode:
 
 ```text
-0x6021600c60003960216000f3
-36600f5760005460005260206000f35b60003560005560005460005260206000f3
+0x601b600b5f39601b5ff3fe365f146012575f355f555f545f5260205ff35b5f545f5260205ff3
 ```
 
 Disassembly of the init prelude:
 
 ```text
-00: 60 21     PUSH1 0x21
-02: 60 0c     PUSH1 0x0c
-04: 60 00     PUSH1 0x00
-06: 39        CODECOPY
-07: 60 21     PUSH1 0x21
-09: 60 00     PUSH1 0x00
-0b: f3        RETURN
+00: 60 1b     PUSH1 0x1b
+02: 60 0b     PUSH1 0x0b
+04: 5f        PUSH0
+05: 39        CODECOPY
+06: 60 1b     PUSH1 0x1b
+08: 5f        PUSH0
+09: f3        RETURN
+0a: fe        INVALID
 ```
 
 Meaning of the constants:
 
-- `0x21`
+- `0x1b`
   - runtime size
-  - decimal `33`
-  - the runtime bytecode is `33` bytes long
-- `0x0c`
+  - decimal `27`
+  - the compiled runtime bytecode is `27` bytes long
+- `0x0b`
   - runtime offset inside the initcode
-  - decimal `12`
-  - the init prelude before the runtime body is exactly `12` bytes
+  - decimal `11`
+  - the init prelude before the runtime body is exactly `11` bytes
 
-Why the runtime offset is `0x0c`:
+Why the runtime offset is `0x0b`:
 
 ```text
-60 21   2 bytes
-60 0c   2 bytes
-60 00   2 bytes
+60 1b   2 bytes
+60 0b   2 bytes
+5f      1 byte
 39      1 byte
-60 21   2 bytes
-60 00   2 bytes
+60 1b   2 bytes
+5f      1 byte
 f3      1 byte
 ----------------
-total   12 bytes = 0x0c
+fe      1 byte padding / separator
+----------------
+runtime begins at byte 11 = 0x0b
 ```
 
 So the initcode logic is:
 
 ```text
-copy 33 bytes
-from code offset 12
+copy 27 bytes
+from code offset 11
 into memory offset 0
-then return those 33 bytes
+then return those 27 bytes
 ```
 
-That returned 33-byte slice is exactly the runtime bytecode shown above.
+That returned slice is exactly the compiled runtime bytecode shown above.
 
 Current initcode in this project:
 
 ```text
-0x6021600c60003960216000f3
-36600f5760005460005260206000f35b60003560005560005460005260206000f3
+0x601b600b5f39601b5ff3fe
+365f146012575f355f555f545f5260205ff35b5f545f5260205ff3
 ```
 
 Split view:
 
 ```text
-6021      PUSH1 0x21   ; runtime size = 33 bytes
-600c      PUSH1 0x0c   ; runtime starts at code offset 12
-6000      PUSH1 0x00   ; memory destination = 0
+601b      PUSH1 0x1b   ; runtime size = 27 bytes
+600b      PUSH1 0x0b   ; runtime starts at code offset 11
+5f        PUSH0        ; memory destination = 0
 39        CODECOPY
-6021      PUSH1 0x21   ; return size = 33 bytes
-6000      PUSH1 0x00   ; return offset = 0
+601b      PUSH1 0x1b   ; return size = 27 bytes
+5f        PUSH0        ; return offset = 0
 f3        RETURN
+fe        INVALID      ; separator before appended runtime bytes
 
-<33 bytes of runtime code follow>
-36600f5760005460005260206000f35b60003560005560005460005260206000f3
+<27 bytes of runtime code follow>
+365f146012575f355f555f545f5260205ff35b5f545f5260205ff3
 ```
 
 Comparison:
