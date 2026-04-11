@@ -18,13 +18,16 @@ package vm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.
@@ -68,6 +71,81 @@ var allPrecompiles = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x0f, 0x10}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{0x0b}): &p256Verify{},
+	addrNativeMatrixMul:                 &nativeMatrixMul{},
+}
+
+func matrixMulWord(v uint64) []byte {
+	word := make([]byte, 32)
+	binary.BigEndian.PutUint64(word[24:], v)
+	return word
+}
+
+func matrixMulInput(words ...uint64) []byte {
+	input := make([]byte, 0, len(words)*32)
+	for _, word := range words {
+		input = append(input, matrixMulWord(word)...)
+	}
+	return input
+}
+
+func TestPrecompiledNativeMatrixMul(t *testing.T) {
+	p := &nativeMatrixMul{}
+	input := matrixMulInput(1, 2, 3, 4, 5, 6, 7, 8)
+	want := matrixMulInput(19, 22, 43, 50)
+
+	got, _, err := RunPrecompiledContract(p, input, p.RequiredGas(input), nil)
+	if err != nil {
+		t.Fatalf("matrix mul failed: %v", err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("matrix mul output mismatch:\nhave %x\nwant %x", got, want)
+	}
+}
+
+func TestPrecompiledNativeMatrixMulRejectsInvalidInput(t *testing.T) {
+	p := &nativeMatrixMul{}
+	shortInput := matrixMulInput(1, 2, 3)
+
+	_, _, err := RunPrecompiledContract(p, shortInput, p.RequiredGas(shortInput), nil)
+	if !errors.Is(err, errNativeMatrixMulInvalidInputLength) {
+		t.Fatalf("unexpected error for short input: %v", err)
+	}
+
+	oversizedWord := matrixMulInput(1, 2, 3, 4, 5, 6, 7, 8)
+	oversizedWord[0] = 0x1
+	_, _, err = RunPrecompiledContract(p, oversizedWord, p.RequiredGas(oversizedWord), nil)
+	if !errors.Is(err, errNativeMatrixMulInvalidWordSize) {
+		t.Fatalf("unexpected error for oversized word: %v", err)
+	}
+}
+
+func TestNativeMatrixMulRegistration(t *testing.T) {
+	forks := map[string]params.Rules{
+		"byzantium": {IsByzantium: true},
+		"istanbul":  {IsByzantium: true, IsIstanbul: true},
+		"berlin":    {IsByzantium: true, IsIstanbul: true, IsBerlin: true},
+		"cancun":    {IsMerge: true, IsShanghai: true, IsCancun: true},
+		"prague":    {IsMerge: true, IsShanghai: true, IsCancun: true, IsPrague: true},
+		"osaka":     {IsMerge: true, IsShanghai: true, IsCancun: true, IsPrague: true, IsOsaka: true},
+	}
+	for name, rules := range forks {
+		t.Run(name, func(t *testing.T) {
+			contracts := ActivePrecompiledContracts(rules)
+			if _, ok := contracts[addrNativeMatrixMul]; !ok {
+				t.Fatalf("precompile missing from contract map")
+			}
+			found := false
+			for _, addr := range ActivePrecompiles(rules) {
+				if addr == addrNativeMatrixMul {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("precompile missing from address list")
+			}
+		})
+	}
 }
 
 // EIP-152 test vectors

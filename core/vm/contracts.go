@@ -76,6 +76,7 @@ var PrecompiledContractsByzantium = PrecompiledContracts{
 	common.BytesToAddress([]byte{0x6}): &bn256AddByzantium{},
 	common.BytesToAddress([]byte{0x7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{0x8}): &bn256PairingByzantium{},
+	addrNativeMatrixMul:                &nativeMatrixMul{},
 }
 
 // PrecompiledContractsIstanbul contains the default set of pre-compiled Ethereum
@@ -90,6 +91,7 @@ var PrecompiledContractsIstanbul = PrecompiledContracts{
 	common.BytesToAddress([]byte{0x7}): &bn256ScalarMulIstanbul{},
 	common.BytesToAddress([]byte{0x8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{0x9}): &blake2F{},
+	addrNativeMatrixMul:                &nativeMatrixMul{},
 }
 
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
@@ -104,6 +106,7 @@ var PrecompiledContractsBerlin = PrecompiledContracts{
 	common.BytesToAddress([]byte{0x7}): &bn256ScalarMulIstanbul{},
 	common.BytesToAddress([]byte{0x8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{0x9}): &blake2F{},
+	addrNativeMatrixMul:                &nativeMatrixMul{},
 }
 
 // PrecompiledContractsCancun contains the default set of pre-compiled Ethereum
@@ -119,6 +122,7 @@ var PrecompiledContractsCancun = PrecompiledContracts{
 	common.BytesToAddress([]byte{0x8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{0x9}): &blake2F{},
 	common.BytesToAddress([]byte{0xa}): &kzgPointEvaluation{},
+	addrNativeMatrixMul:                &nativeMatrixMul{},
 }
 
 // PrecompiledContractsPrague contains the set of pre-compiled Ethereum
@@ -141,6 +145,7 @@ var PrecompiledContractsPrague = PrecompiledContracts{
 	common.BytesToAddress([]byte{0x0f}): &bls12381Pairing{},
 	common.BytesToAddress([]byte{0x10}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
+	addrNativeMatrixMul:                 &nativeMatrixMul{},
 }
 
 var PrecompiledContractsBLS = PrecompiledContractsPrague
@@ -169,6 +174,7 @@ var PrecompiledContractsOsaka = PrecompiledContracts{
 	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
 
 	common.BytesToAddress([]byte{0x1, 0x00}): &p256Verify{},
+	addrNativeMatrixMul:                      &nativeMatrixMul{},
 }
 
 // PrecompiledContractsP256Verify contains the precompiled Ethereum

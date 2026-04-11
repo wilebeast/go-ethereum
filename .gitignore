@@ -74,3 +74,4 @@ my-geth
 core/txpool/legacypool/__debug_bin585423071
 .tools/*/*
 */*/__debug_bin*
+geth
