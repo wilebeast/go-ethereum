@@ -185,6 +185,36 @@ func printDisassembly(insts []instruction) {
 }
 
 func analyze(insts []instruction, pcToIndex map[int]int) []finding {
+	pathSensitive := analyzePathSensitive(insts, pcToIndex)
+	heuristic := analyzeLexicalFallback(insts)
+	found := make(map[string]finding, len(pathSensitive)+len(heuristic))
+	for _, f := range pathSensitive {
+		key := fmt.Sprintf("%d/%d/%s/%s", f.LoadPC, f.CallPC, f.SlotHex, f.CallOp)
+		found[key] = f
+	}
+	for _, f := range heuristic {
+		key := fmt.Sprintf("%d/%d/%s/%s", f.LoadPC, f.CallPC, f.SlotHex, f.CallOp)
+		if _, ok := found[key]; !ok {
+			found[key] = f
+		}
+	}
+	results := make([]finding, 0, len(found))
+	for _, finding := range found {
+		results = append(results, finding)
+	}
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].CallPC != results[j].CallPC {
+			return results[i].CallPC < results[j].CallPC
+		}
+		if results[i].LoadPC != results[j].LoadPC {
+			return results[i].LoadPC < results[j].LoadPC
+		}
+		return results[i].SlotHex < results[j].SlotHex
+	})
+	return results
+}
+
+func analyzePathSensitive(insts []instruction, pcToIndex map[int]int) []finding {
 	worklist := []execState{{index: 0, stack: nil, loadedSlots: map[string]int{}, memory: map[uint64]absValue{}}}
 	visited := make(map[string]bool)
 	found := make(map[string]finding)
@@ -241,6 +271,67 @@ func analyze(insts []instruction, pcToIndex map[int]int) []finding {
 		return results[i].SlotHex < results[j].SlotHex
 	})
 	return results
+}
+
+func analyzeLexicalFallback(insts []instruction) []finding {
+	found := make(map[string]finding)
+	for i, inst := range insts {
+		if !isCallLike(inst.op) {
+			continue
+		}
+		loadInst, ok := nearestPriorSload(insts, i)
+		if !ok {
+			continue
+		}
+		if _, ok := laterSstore(insts, i); !ok {
+			continue
+		}
+		key := fmt.Sprintf("%d/%d/%s", loadInst.pc, inst.pc, inst.op)
+		found[key] = finding{
+			LoadPC:   loadInst.pc,
+			CallPC:   inst.pc,
+			SlotHex:  "<heuristic>",
+			CallOp:   inst.op,
+			Severity: "warning",
+		}
+	}
+	results := make([]finding, 0, len(found))
+	for _, finding := range found {
+		results = append(results, finding)
+	}
+	sort.Slice(results, func(i, j int) bool {
+		if results[i].CallPC != results[j].CallPC {
+			return results[i].CallPC < results[j].CallPC
+		}
+		return results[i].LoadPC < results[j].LoadPC
+	})
+	return results
+}
+
+func nearestPriorSload(insts []instruction, callIndex int) (instruction, bool) {
+	for i := callIndex - 1; i >= 0; i-- {
+		switch insts[i].op {
+		case vm.SLOAD:
+			return insts[i], true
+		case vm.SSTORE:
+			return instruction{}, false
+		case vm.STOP, vm.RETURN, vm.REVERT, vm.INVALID, vm.SELFDESTRUCT:
+			return instruction{}, false
+		}
+	}
+	return instruction{}, false
+}
+
+func laterSstore(insts []instruction, callIndex int) (instruction, bool) {
+	for i := callIndex + 1; i < len(insts); i++ {
+		switch insts[i].op {
+		case vm.SSTORE:
+			return insts[i], true
+		case vm.STOP, vm.RETURN, vm.REVERT, vm.INVALID, vm.SELFDESTRUCT:
+			return instruction{}, false
+		}
+	}
+	return instruction{}, false
 }
 
 func analyzeTrace(logs []traceLog) []traceFinding {
@@ -555,8 +646,8 @@ func jumpTakenPossible(cond absValue) bool {
 }
 
 func stateKey(state execState) string {
-	stackParts := make([]string, 0, min(len(state.stack), 8))
-	for i := max(0, len(state.stack)-8); i < len(state.stack); i++ {
+	stackParts := make([]string, 0, len(state.stack))
+	for i := 0; i < len(state.stack); i++ {
 		stackParts = append(stackParts, describe(state.stack[i]))
 	}
 	slotKeys := make([]string, 0, len(state.loadedSlots))

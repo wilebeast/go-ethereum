@@ -59,6 +59,21 @@ func TestAnalyzeTracksMappingStyleSlot(t *testing.T) {
 	}
 }
 
+func TestAnalyzeFlagsHelperJumpPattern(t *testing.T) {
+	// SLOAD
+	// push return address + helper target
+	// JUMP into helper
+	// helper immediately JUMPs back using the saved return address
+	// CALL
+	// SSTORE after the CALL
+	code := mustDecodeHex("6000545060096016565b5f5f5f5f5f5f5ff15f5f55005b56")
+	insts, pcToIndex := disassemble(code)
+	findings := analyze(insts, pcToIndex)
+	if len(findings) == 0 {
+		t.Fatalf("expected finding across helper-style jump/return path")
+	}
+}
+
 func mustDecodeHex(s string) []byte {
 	b, err := loadBytecode(s, "", "", "", "latest")
 	if err != nil {

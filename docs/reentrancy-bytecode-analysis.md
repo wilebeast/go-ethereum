@@ -8,13 +8,13 @@ This document is the repository implementation for the week-6 task:
 
 Related files:
 
-- [VulnerableBank.sol](~/docs/reentrancy/VulnerableBank.sol)
-- [ReentrancyAttacker.sol](~/docs/reentrancy/ReentrancyAttacker.sol)
-- [main.go](~/cmd/reentrancyscan/main.go)
-- [reentrancy_trace_lab.py](~/scripts/reentrancy_trace_lab.py)
-- [reentrancy-lab.md](~/docs/reentrancy-lab.md)
-- [logger.go](~/eth/tracers/logger/logger.go)
-- [opcodes.go](~/core/vm/opcodes.go)
+- [VulnerableBank.sol](../docs/reentrancy/VulnerableBank.sol)
+- [ReentrancyAttacker.sol](../docs/reentrancy/ReentrancyAttacker.sol)
+- [main.go](../cmd/reentrancyscan/main.go)
+- [reentrancy_trace_lab.py](../scripts/reentrancy_trace_lab.py)
+- [reentrancy-lab.md](../docs/reentrancy-lab.md)
+- [logger.go](../eth/tracers/logger/logger.go)
+- [opcodes.go](../core/vm/opcodes.go)
 
 ## 1. Why Reentrancy Is Visible In Bytecode
 
@@ -38,11 +38,11 @@ The problem is not that `CALL` exists. The problem is that control leaves the co
 
 The opcodes involved in this repository are:
 
-- `SLOAD` [opcodes.go](~/core/vm/opcodes.go#L116)
-- `SSTORE` [opcodes.go](~/core/vm/opcodes.go#L117)
-- `CALL` [opcodes.go](~/core/vm/opcodes.go#L240)
-- `CALLCODE` [opcodes.go](~/core/vm/opcodes.go#L241)
-- `DELEGATECALL` [opcodes.go](~/core/vm/opcodes.go#L243)
+- `SLOAD` [opcodes.go](../core/vm/opcodes.go#L116)
+- `SSTORE` [opcodes.go](../core/vm/opcodes.go#L117)
+- `CALL` [opcodes.go](../core/vm/opcodes.go#L240)
+- `CALLCODE` [opcodes.go](../core/vm/opcodes.go#L241)
+- `DELEGATECALL` [opcodes.go](../core/vm/opcodes.go#L243)
 
 For classic ether-withdraw reentrancy, the critical external-control-transfer opcode is ordinary `CALL`.
 
@@ -50,7 +50,7 @@ For classic ether-withdraw reentrancy, the critical external-control-transfer op
 
 ### 2.1 Vulnerable Bank
 
-[VulnerableBank.sol](~/docs/reentrancy/VulnerableBank.sol) intentionally violates the Checks-Effects-Interactions pattern:
+[VulnerableBank.sol](../docs/reentrancy/VulnerableBank.sol) intentionally violates the Checks-Effects-Interactions pattern:
 
 ```solidity
 uint256 amount = balances[msg.sender];
@@ -63,7 +63,7 @@ The storage write happens too late.
 
 ### 2.2 Attacker
 
-[ReentrancyAttacker.sol](~/docs/reentrancy/ReentrancyAttacker.sol) reenters from `receive()`:
+[ReentrancyAttacker.sol](../docs/reentrancy/ReentrancyAttacker.sol) reenters from `receive()`:
 
 ```solidity
 receive() external payable {
@@ -78,7 +78,7 @@ This is enough to demonstrate repeated control return into the vulnerable withdr
 
 ## 3. What To Trace In Geth
 
-For actual transaction tracing in this repository, the relevant structured tracer output is defined in [logger.go](~/eth/tracers/logger/logger.go).
+For actual transaction tracing in this repository, the relevant structured tracer output is defined in [logger.go](../eth/tracers/logger/logger.go).
 
 The key fields are:
 
@@ -96,25 +96,12 @@ Those fields let you recognize the exploit shape directly:
 ```text
 depth=1  ... SLOAD
 depth=1  ... CALL
-depth=2  ... attacker receive()
+depth=2  ... attacker fallback / receive
 depth=2  ... CALL back into bank
 depth=3  ... SLOAD of the same logical balance slot again
 ```
 
 The important observation is not just that `CALL` appears twice. It is that the reentered `SLOAD` happens before the original `SSTORE` to zero has executed.
-
-In this repository's demo pair, the callback is specifically `receive()`, not a generic `fallback / receive` pair. The reason is that the vulnerable bank executes:
-
-```solidity
-msg.sender.call{value: amount}("");
-```
-
-That sends:
-
-- non-zero `value`
-- empty calldata
-
-so the attacker contract's `receive()` is the callback that gets triggered.
 
 ## 4. Reproduction Workflow
 
@@ -144,30 +131,6 @@ bank.withdraw again:
 ```
 
 The automated version of this workflow is implemented in [reentrancy_trace_lab.py](..//scripts/reentrancy_trace_lab.py).
-
-### 4.1 Why The Demo Does Not Loop Forever
-
-The attacker contract does not recurse without bound. Its `receive()` handler only reenters while both of these conditions hold:
-
-```solidity
-address(bank).balance > 0
-reentryCount < maxReentries
-```
-
-So execution ends when any of the following becomes true:
-
-1. `reentryCount` reaches `maxReentries`
-2. the bank no longer has enough ether to continue the pattern
-3. gas is exhausted
-4. one of the nested calls fails and the call stack unwinds
-
-At that point the deepest reentered call returns first, then each older frame resumes from the point after its `CALL`. The original vulnerable function eventually reaches its delayed:
-
-```solidity
-balances[msg.sender] = 0;
-```
-
-but by then the earlier nested withdrawals have already observed the old balance.
 
 ## 5. Why The Scanner Uses Bytecode, Not Source
 
@@ -204,13 +167,6 @@ This is intentionally stronger than a naive linear grep for `54 f1 55`:
 - it tracks stack-derived constant slots
 - it follows simple constant jump destinations
 - it removes a slot from the hazard set once `SSTORE(slot)` happens
-- it recognizes a common mapping-slot shape:
-  - `CALLER`
-  - memory writes for key and base slot
-  - `KECCAK256`
-  - `SLOAD` / `SSTORE`
-
-That last addition is what lets the demo scanner reason about `balances[msg.sender]`-style layouts instead of only trivial constant slots.
 
 ## 7. Scanner Usage
 
@@ -279,15 +235,15 @@ This is a demo scanner, not Slither.
 Current limitations:
 
 1. it only reasons well about constant storage slots
-2. it supports only a narrow mapping pattern for storage expressions, mainly `keccak256(CALLER, baseSlot)`
-3. it only resolves jumps when the destination is statically known
+2. it only resolves jumps when the destination is statically known
+3. it does not model memory-derived slot computations such as `keccak256(key . slot)` for mappings
 4. it does not build a complete interprocedural CFG
 5. it treats `CALLCODE` and `DELEGATECALL` conservatively as external-control-transfer hazards
 
 That means:
 
 - it can identify the core bytecode shape
-- it still cannot fully reconstruct high-level semantics for arbitrary optimized contracts
+- it cannot fully reconstruct high-level semantics for arbitrary optimized contracts
 
 ## 10. Why This Is Still Useful
 
